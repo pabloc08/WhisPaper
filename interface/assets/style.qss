@@ -1,0 +1,233 @@
+/* WhisPaper — estilo global
+   Edite aqui para customizar o tema. Dark theme: copie este arquivo,
+   ajuste as cores e carregue via CONFIG ou variável de ambiente. */
+
+QMainWindow, QDialog {
+    background-color: #f5f5f5;
+}
+
+QWidget {
+    font-family: "Inter", "Segoe UI", "Noto Sans", sans-serif;
+    font-size: 10pt;
+    color: #1a1a1a;
+    background-color: transparent;
+}
+
+/* Fundo aplicado em containers de topo */
+QWidget#central_widget,
+QDialog,
+QDialog > QWidget {
+    background-color: #f5f5f5;
+}
+
+/* Botão primário */
+QPushButton {
+    background-color: #3b82f6;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 7px 18px;
+    font-size: 10pt;
+}
+QPushButton:hover    { background-color: #2563eb; }
+QPushButton:pressed  { background-color: #1d4ed8; }
+QPushButton:disabled { background-color: #93c5fd; color: #e0e0e0; }
+
+/* Botão configurações gerais */
+QPushButton#btn_config_geral {
+    background-color: #f1f5f9;
+    color: #334155;
+    border: 1px solid #cbd5e1;
+}
+QPushButton#btn_config_geral:hover    { background-color: #e2e8f0; }
+QPushButton#btn_config_geral:pressed  { background-color: #cbd5e1; }
+QPushButton#btn_config_geral:disabled {
+    background-color: #f1f5f9;
+    color: #94a3b8;
+    border: 1px solid #e2e8f0;
+}
+
+/* Botão cancelar */
+QPushButton#btn_cancelar {
+    background-color: #e53e3e;
+}
+QPushButton#btn_cancelar:hover   { background-color: #c53030; }
+QPushButton#btn_cancelar:pressed { background-color: #9b2c2c; }
+QPushButton#btn_cancelar:disabled { background-color: #fc8181; }
+
+/* Botão ícone (engrenagem) */
+QPushButton#btn_icone {
+    background-color: transparent;
+    border: none;
+    padding: 2px;
+    border-radius: 4px;
+}
+QPushButton#btn_icone:hover   { background-color: #e2e8f0; }
+QPushButton#btn_icone:pressed { background-color: #cbd5e1; }
+
+/* Botão link */
+QPushButton#btn_link {
+    background-color: transparent;
+    color: #3b82f6;
+    border: none;
+    padding: 0;
+    text-decoration: underline;
+    font-size: 9pt;
+    text-align: left;
+}
+QPushButton#btn_link:hover { color: #2563eb; }
+
+/* Botão remover (vermelho) */
+QPushButton#btn_remover {
+    background-color: #e53e3e;
+    padding: 4px 10px;
+    font-size: 9pt;
+}
+QPushButton#btn_remover:hover   { background-color: #c53030; }
+QPushButton#btn_remover:pressed { background-color: #9b2c2c; }
+
+/* ComboBox */
+QComboBox {
+    background-color: white;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    padding: 5px 28px 5px 10px;
+}
+QComboBox:focus    { border-color: #3b82f6; }
+QComboBox:disabled { background-color: #f1f5f9; color: #94a3b8; }
+QComboBox::drop-down {
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+    width: 24px;
+    border: none;
+}
+QComboBox::down-arrow {
+    image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path d='M1 1l5 5 5-5' stroke='%2364748b' stroke-width='1.8' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+    width: 12px;
+    height: 8px;
+}
+QComboBox QAbstractItemView {
+    background-color: white;
+    border: 1px solid #cbd5e1;
+    border-radius: 9px;
+    outline: none;
+    padding: 6px;
+}
+QComboBox QAbstractItemView::item {
+    background-color: white;
+    border-radius: 4px;
+    padding: 6px 8px;
+    margin: 1px 0px;
+}
+QComboBox QAbstractItemView::item:selected,
+QComboBox QAbstractItemView::item:hover {
+    background-color: #dbeafe;
+    color: #1a1a1a;
+    border-radius: 4px;
+}
+
+/* LineEdit */
+QLineEdit {
+    background-color: white;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    padding: 5px 8px;
+}
+QLineEdit:focus    { border-color: #3b82f6; }
+QLineEdit:disabled { background-color: #f1f5f9; color: #94a3b8; }
+
+/* CheckBox */
+QCheckBox { spacing: 6px; background-color: transparent; }
+QCheckBox::indicator {
+    width: 16px; height: 16px;
+    border: 1px solid #cbd5e1;
+    border-radius: 3px;
+    background: white;
+}
+QCheckBox::indicator:checked  { background-color: #3b82f6; border-color: #3b82f6; }
+QCheckBox::indicator:disabled { background-color: #f1f5f9; }
+
+/* Drop area */
+QFrame#drop_area {
+    background-color: #f0f7ff;
+    border: 1.5px dashed #bfdbfe;
+    border-radius: 16px;
+}
+
+/* Linha de arquivo na lista */
+QFrame#linha_arquivo {
+    background-color: #e8edf2;
+    border-radius: 6px;
+}
+
+/* Separador horizontal */
+QFrame[frameShape="4"] { color: #cbd5e1; max-height: 1px; }
+
+/* Label cinza */
+QLabel#label_cinza {
+    color: #94a3b8;
+    font-size: 8pt;
+    background-color: transparent;
+}
+
+/* Label status */
+QLabel#label_status {
+    color: #475569;
+    font-size: 9pt;
+    background-color: transparent;
+}
+
+/* Label genérico transparente */
+QLabel { background-color: transparent; }
+
+/* ScrollArea */
+QScrollArea           { border: none; background: transparent; }
+QScrollArea > QWidget { background: transparent; }
+QScrollBar:vertical   { width: 6px; background: transparent; border: none; }
+QScrollBar::handle:vertical {
+    background: #cbd5e1; border-radius: 3px; min-height: 20px;
+}
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
+
+/* ── Botão "Como usar?" (?) ─────────────────────────────────────── */
+QPushButton#btn_como_usar {
+    background-color: #5b9bd5;
+    color: white;
+    border: none;
+    border-radius: 16px;
+    font-weight: 700;
+    font-size: 13pt;
+    padding: 0px;
+}
+QPushButton#btn_como_usar:hover   { background-color: #4a87c2; }
+QPushButton#btn_como_usar:pressed { background-color: #3a72a8; }
+
+/* ── Boas-vindas: nome, hint e labels de seção ── */
+QLabel#label_app_nome {
+    font-weight: 700;
+    font-size: 18pt;
+    color: #1e293b;
+}
+
+QLabel#label_app_hint {
+    font-style: italic;
+    font-size: 10pt;
+    color: #64748b;
+}
+
+QLabel#label_prefs_secao {
+    font-weight: 600;
+    font-size: 9pt;
+    color: #64748b;
+    letter-spacing: 0.5px;
+}
+
+
+QHeaderView::section {
+    background-color: #f8fafc;
+    color: #1a1a1a;
+    border: none;
+    border-right: 1px solid #e2e8f0;
+    border-bottom: 1px solid #cbd5e1;
+    padding: 4px 8px;
+}

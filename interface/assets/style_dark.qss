@@ -1,0 +1,239 @@
+/* WhisPaper — Dark Theme
+   Baseado na paleta recomendada.
+   Para ativar: defina "tema": "dark" no config.json
+   ou renomeie este arquivo para style.qss (substitui o light). */
+
+QMainWindow, QDialog {
+    background-color: #1A1B1E;
+}
+
+QWidget {
+    font-family: "Inter", "Segoe UI", "Noto Sans", sans-serif;
+    font-size: 10pt;
+    color: #C9CDD4;
+    background-color: transparent;
+}
+
+/* Fundo aplicado em containers de topo */
+QWidget#central_widget,
+QDialog,
+QDialog > QWidget {
+    background-color: #1A1B1E;
+}
+
+/* Botão primário */
+QPushButton {
+    background-color: #2C3A5E;
+    color: #7AABFF;
+    border: none;
+    border-radius: 6px;
+    padding: 7px 18px;
+    font-size: 10pt;
+}
+QPushButton:hover    { background-color: #364873; }
+QPushButton:pressed  { background-color: #1E2B47; }
+QPushButton:disabled { background-color: #212227; color: #4A4F5C; }
+
+/* Botão configurações gerais */
+QPushButton#btn_config_geral {
+    background-color: transparent;
+    color: #8B8F9A;
+    border: 0.5px solid #3A3B42;
+}
+QPushButton#btn_config_geral:hover    { background-color: #2A2B30; }
+QPushButton#btn_config_geral:pressed  { background-color: #212227; }
+QPushButton#btn_config_geral:disabled {
+    background-color: transparent;
+    color: #3A3B42;
+    border: 0.5px solid #2A2B30;
+}
+/* Botão cancelar */
+QPushButton#btn_cancelar {
+    background-color: #3D2525;
+    color: #FF7A7A;
+    border: none;
+}
+QPushButton#btn_cancelar:hover   { background-color: #4D2E2E; }
+QPushButton#btn_cancelar:pressed { background-color: #2D1A1A; }
+QPushButton#btn_cancelar:disabled { background-color: #2A2020; color: #7A4A4A; }
+
+/* Botão ícone (engrenagem) */
+QPushButton#btn_icone {
+    background-color: transparent;
+    border: none;
+    padding: 2px;
+    border-radius: 4px;
+}
+QPushButton#btn_icone:hover   { background-color: #2A2B30; }
+QPushButton#btn_icone:pressed { background-color: #212227; }
+
+/* Botão link */
+QPushButton#btn_link {
+    background-color: transparent;
+    color: #5B8CFF;
+    border: none;
+    padding: 0;
+    text-decoration: underline;
+    font-size: 9pt;
+    text-align: left;
+}
+QPushButton#btn_link:hover { color: #7AABFF; }
+
+/* Botão remover (vermelho) */
+QPushButton#btn_remover {
+    background-color: #3D2525;
+    color: #FF7A7A;
+    padding: 4px 10px;
+    font-size: 9pt;
+}
+QPushButton#btn_remover:hover   { background-color: #4D2E2E; }
+QPushButton#btn_remover:pressed { background-color: #2D1A1A; }
+
+/* ComboBox */
+QComboBox {
+    background-color: #2A2B30;
+    border: 0.5px solid #3A3B42;
+    border-radius: 6px;
+    padding: 5px 28px 5px 10px;
+    color: #C9CDD4;
+}
+QComboBox:focus    { border-color: #5B8CFF; }
+QComboBox:disabled { background-color: #212227; color: #4A4F5C; }
+QComboBox::drop-down {
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+    width: 24px;
+    border: none;
+}
+QComboBox::down-arrow {
+    image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path d='M1 1l5 5 5-5' stroke='%235B8CFF' stroke-width='1.8' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+    width: 12px;
+    height: 8px;
+}
+QComboBox QAbstractItemView {
+    background-color: #212227;
+    border: 0.5px solid #3A3B42;
+    border-radius: 9px;
+    color: #C9CDD4;
+    outline: none;
+    padding: 6px;
+}
+QComboBox QAbstractItemView::item {
+    background-color: #212227;
+    border-radius: 4px;
+    padding: 6px 8px;
+    margin: 1px 0px;
+}
+QComboBox QAbstractItemView::item:selected,
+QComboBox QAbstractItemView::item:hover {
+    background-color: #2C3A5E;
+    color: #7AABFF;
+    border-radius: 4px;
+}
+
+/* LineEdit */
+QLineEdit {
+    background-color: #2A2B30;
+    border: 0.5px solid #3A3B42;
+    border-radius: 6px;
+    padding: 5px 8px;
+    color: #C9CDD4;
+}
+QLineEdit:focus    { border-color: #5B8CFF; }
+QLineEdit:disabled { background-color: #212227; color: #4A4F5C; }
+
+/* CheckBox */
+QCheckBox { spacing: 6px; background-color: transparent; }
+QCheckBox::indicator {
+    width: 16px; height: 16px;
+    border: 0.5px solid #3A3B42;
+    border-radius: 3px;
+    background: #2A2B30;
+}
+QCheckBox::indicator:checked  { background-color: #2C3A5E; border-color: #5B8CFF; }
+QCheckBox::indicator:disabled { background-color: #212227; }
+
+/* Drop area */
+QFrame#drop_area {
+    background-color: #212227;
+    border: 1.5px dashed #3A3B42;
+    border-radius: 16px;
+}
+
+/* Linha de arquivo na lista */
+QFrame#linha_arquivo {
+    background-color: #212227;
+    border-radius: 6px;
+}
+
+/* Separador horizontal */
+QFrame[frameShape="4"] { color: #3A3B42; max-height: 1px; }
+
+/* Label cinza */
+QLabel#label_cinza {
+    color: #6B6F7A;
+    font-size: 8pt;
+    background-color: transparent;
+}
+
+/* Label status */
+QLabel#label_status {
+    color: #5B8CFF;
+    font-size: 9pt;
+    background-color: transparent;
+}
+
+/* Label genérico transparente */
+QLabel { background-color: transparent; }
+
+/* ScrollArea */
+QScrollArea           { border: none; background: transparent; }
+QScrollArea > QWidget { background: transparent; }
+QScrollBar:vertical   { width: 6px; background: transparent; border: none; }
+QScrollBar::handle:vertical {
+    background: #3A3B42; border-radius: 3px; min-height: 20px;
+}
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
+
+/* ── Botão "Como usar?" (?) ─────────────────────────────────────── */
+QPushButton#btn_como_usar {
+    background-color: #2C3A5E;
+    color: #93b8e8;
+    border: 1px solid #4a7ab5;
+    border-radius: 16px;
+    font-weight: 700;
+    font-size: 13pt;
+    padding: 0px;
+}
+QPushButton#btn_como_usar:hover   { background-color: #364873; }
+QPushButton#btn_como_usar:pressed { background-color: #1E2B47; }
+
+/* ── Boas-vindas: nome, hint e labels de seção ── */
+QLabel#label_app_nome {
+    font-weight: 700;
+    font-size: 18pt;
+    color: #e2e8f0;
+}
+
+QLabel#label_app_hint {
+    font-style: italic;
+    font-size: 10pt;
+    color: #6B7280;
+}
+
+QLabel#label_prefs_secao {
+    font-weight: 600;
+    font-size: 9pt;
+    color: #6B7280;
+    letter-spacing: 0.5px;
+}
+
+
+QHeaderView::section {
+    background-color: #212227;
+    color: #C9CDD4;
+    border: none;
+    border-right: 1px solid #3A3B42;
+    border-bottom: 1px solid #3A3B42;
+    padding: 4px 8px;
+}
