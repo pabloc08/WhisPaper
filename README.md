@@ -74,7 +74,7 @@ python main.py
 
 - Python 3.11 or later.
 - PySide6 6.9.3 or later (tested with 6.9.3).
-- Httpx
+- Httpx.
 - FFmpeg and FFprobe available in the system PATH (on Windows, the app can install it on demand).
 
 ### Whisper.cpp binaries and VAD model
