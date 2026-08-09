@@ -38,6 +38,8 @@ class BaseEngine(ABC):
         formato_saida: str = "ambos",
         vad_filter:    bool = False,
         on_progress:   callable = None,
+        temperature:   float = 0.0,
+        beam_size:     int = 5,
     ) -> Path:
         """
         Executa a transcrição e retorna o Path do arquivo principal gerado.
@@ -50,6 +52,10 @@ class BaseEngine(ABC):
             output_path   Path base SEM extensão — a engine acrescenta
                           .txt / .srt conforme formato_saida
             formato_saida "txt", "srt" ou "ambos"
+            on_progress   callback(segundos_transcritos: int, texto_segmento: str),
+                          chamado a cada segmento reconhecido pela engine
+            temperature   temperatura de amostragem (0.0 = determinístico)
+            beam_size     tamanho do beam search (-1 desativa, usa greedy)
 
         Retorna:
             Path do arquivo principal gerado (.txt ou .srt)
