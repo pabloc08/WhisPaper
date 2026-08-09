@@ -20,3 +20,5 @@ class TranscriptionRequest:
     formato_saida: str = "ambos"   # "txt", "srt", "vtt", "srt_vtt", "todos" ou "ambos"
     vad_filter:    bool = False
     usar_gpu:      bool = False
+    temperature:   float = 0.0
+    beam_size:     int = 5
