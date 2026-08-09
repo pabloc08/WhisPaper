@@ -76,6 +76,8 @@ class WhisperCppEngine(BaseEngine):
         vad_filter:    bool = False,
         on_progress:   callable = None,
         usar_gpu:      bool = False,
+        temperature:   float = 0.0,
+        beam_size:     int = 5,
     ) -> Path:
         self._cancelado = False
 
@@ -87,6 +89,7 @@ class WhisperCppEngine(BaseEngine):
         comando = self._montar_comando(
             binario, audio_path, model_path, task, language,
             output_path, formato_saida, vad_filter, usar_gpu,
+            temperature, beam_size,
         )
 
         _t0 = monotonic()
@@ -95,45 +98,51 @@ class WhisperCppEngine(BaseEngine):
 
         self._processo = subprocess.Popen(comando, **kwargs)
 
+        # Os segmentos reconhecidos ("[hh:mm:ss --> hh:mm:ss]  texto") são
+        # impressos pelo whisper-cli no STDOUT (printf) — só logs de
+        # diagnóstico (carregamento de modelo, system_info etc.) vão pro
+        # stderr (fprintf(stderr, ...)). Ver whisper.cpp/examples/cli/cli.cpp.
         _RE_TIMESTAMP = re.compile(
-            r"\[(\d{2}):(\d{2}):(\d{2})\.\d+ --> (\d{2}):(\d{2}):(\d{2})\.\d+\]"
+            r"\[(\d{2}):(\d{2}):(\d{2})\.\d+ --> (\d{2}):(\d{2}):(\d{2})\.\d+\]\s*(.*)"
         )
 
-        stderr_lines: list[str] = []
+        # stdout em thread separada, lido linha a linha (para progresso em
+        # tempo real) — não bloquear o cancelamento. No Windows, a leitura
+        # pode travar mesmo após terminate()/kill() enquanto o pipe não for
+        # fechado pelo processo filho; por isso o timeout no .join() abaixo.
+        stdout_lines: list[str] = []
 
-        def _ler_stderr():
-            for linha in self._processo.stderr:
-                stderr_lines.append(linha)
+        def _ler_stdout():
+            for linha in self._processo.stdout:
+                stdout_lines.append(linha)
                 if on_progress is None:
                     continue
                 m = _RE_TIMESTAMP.search(linha)
                 if m:
                     h2, m2, s2 = int(m.group(4)), int(m.group(5)), int(m.group(6))
-                    on_progress(h2 * 3600 + m2 * 60 + s2)
-
-        t_stderr = threading.Thread(target=_ler_stderr, daemon=True)
-        t_stderr.start()
-
-        # Ler stdout em thread separada para não bloquear o cancelamento.
-        # No Windows, stdout.read() pode travar mesmo após terminate()/kill()
-        # enquanto o pipe não for fechado pelo processo filho.
-        stdout_chunks: list[str] = []
-
-        def _ler_stdout():
-            try:
-                stdout_chunks.append(self._processo.stdout.read())
-            except Exception:
-                pass
+                    texto_segmento = m.group(7).strip()
+                    on_progress(h2 * 3600 + m2 * 60 + s2, texto_segmento)
 
         t_stdout = threading.Thread(target=_ler_stdout, daemon=True)
         t_stdout.start()
+
+        stderr_chunks: list[str] = []
+
+        def _ler_stderr():
+            try:
+                stderr_chunks.append(self._processo.stderr.read())
+            except Exception:
+                pass
+
+        t_stderr = threading.Thread(target=_ler_stderr, daemon=True)
+        t_stderr.start()
 
         t_stdout.join(_TIMEOUT_LEITURA_PIPE)
         t_stderr.join(_TIMEOUT_LEITURA_PIPE)
         returncode = self._processo.wait()
 
-        stdout_data = "".join(stdout_chunks)
-        stderr_data = "".join(stderr_lines)
+        stdout_data = "".join(stdout_lines)
+        stderr_data = "".join(stderr_chunks)
         elapsed = monotonic() - _t0
 
         log_subprocess("whispercpp", returncode, stdout_data, stderr_data)
@@ -154,7 +163,7 @@ class WhisperCppEngine(BaseEngine):
                 return self._transcrever_com_binario(
                     binario, audio_path, model_path, task, language,
                     output_path, formato_saida, vad_filter, on_progress,
-                    usar_gpu=False,
+                    usar_gpu=False, temperature=temperature, beam_size=beam_size,
                 )
             detalhe = stderr_data.strip() or stdout_data.strip() or "(sem mensagem)"
             raise RuntimeError(
@@ -166,12 +175,13 @@ class WhisperCppEngine(BaseEngine):
     def _transcrever_com_binario(
         self, binario, audio_path, model_path, task, language,
         output_path, formato_saida, vad_filter, on_progress,
-        usar_gpu: bool = False,
+        usar_gpu: bool = False, temperature: float = 0.0, beam_size: int = 5,
     ) -> Path:
         """Executa uma segunda tentativa (fallback), tipicamente forçando -ng."""
         comando = self._montar_comando(
             binario, audio_path, model_path, task, language,
             output_path, formato_saida, vad_filter, usar_gpu,
+            temperature, beam_size,
         )
 
         _t0 = monotonic()
@@ -179,40 +189,42 @@ class WhisperCppEngine(BaseEngine):
 
         self._processo = subprocess.Popen(comando, **kwargs)
 
+        # Mesma observação de transcribe(): segmentos vêm no STDOUT.
         _RE_TIMESTAMP = re.compile(
-            r"\[(\d{2}):(\d{2}):(\d{2})\.\d+ --> (\d{2}):(\d{2}):(\d{2})\.\d+\]"
+            r"\[(\d{2}):(\d{2}):(\d{2})\.\d+ --> (\d{2}):(\d{2}):(\d{2})\.\d+\]\s*(.*)"
         )
-        stderr_lines: list[str] = []
+        stdout_lines: list[str] = []
 
         def _ler():
-            for linha in self._processo.stderr:
-                stderr_lines.append(linha)
+            for linha in self._processo.stdout:
+                stdout_lines.append(linha)
                 if on_progress is None:
-                    return
+                    continue
                 m = _RE_TIMESTAMP.search(linha)
                 if m:
                     h2, m2, s2 = int(m.group(4)), int(m.group(5)), int(m.group(6))
-                    on_progress(h2 * 3600 + m2 * 60 + s2)
+                    texto_segmento = m.group(7).strip()
+                    on_progress(h2 * 3600 + m2 * 60 + s2, texto_segmento)
 
         t = threading.Thread(target=_ler, daemon=True)
         t.start()
 
-        stdout_chunks2: list[str] = []
+        stderr_chunks2: list[str] = []
 
-        def _ler_stdout2():
+        def _ler_stderr2():
             try:
-                stdout_chunks2.append(self._processo.stdout.read())
+                stderr_chunks2.append(self._processo.stderr.read())
             except Exception:
                 pass
 
-        t_stdout2 = threading.Thread(target=_ler_stdout2, daemon=True)
-        t_stdout2.start()
+        t_stderr2 = threading.Thread(target=_ler_stderr2, daemon=True)
+        t_stderr2.start()
 
-        t_stdout2.join(_TIMEOUT_LEITURA_PIPE)
+        t_stderr2.join(_TIMEOUT_LEITURA_PIPE)
         t.join(_TIMEOUT_LEITURA_PIPE)
         returncode = self._processo.wait()
-        stdout_data = "".join(stdout_chunks2)
-        stderr_data = "".join(stderr_lines)
+        stdout_data = "".join(stdout_lines)
+        stderr_data = "".join(stderr_chunks2)
         elapsed = monotonic() - _t0
 
         log_subprocess("whispercpp[cpu-fallback]", returncode, stdout_data, stderr_data)
@@ -309,6 +321,8 @@ class WhisperCppEngine(BaseEngine):
         formato_saida: str,
         vad_filter:    bool = False,
         usar_gpu:      bool = False,
+        temperature:   float = 0.0,
+        beam_size:     int = 5,
     ) -> list:
         cmd = [
             str(binario),
@@ -348,5 +362,22 @@ class WhisperCppEngine(BaseEngine):
                     "VAD solicitado, mas nenhum modelo Silero (*silero*.bin) "
                     "foi encontrado em MODELS_DIR — seguindo sem VAD."
                 )
+
+        # -tp/-bs só são passados quando diferentes do padrão do próprio
+        # whisper-cli (0.0 / 5) — evita poluir o comando à toa.
+        if temperature != 0.0:
+            cmd += ["-tp", str(temperature)]
+        if beam_size != 5:
+            # O whisper.cpp tem um teto rígido de decoders simultâneos (8) —
+            # pedir mais que isso derruba o processo com "too many decoders
+            # requested". Trava aqui como segurança, mesmo que a UI já limite
+            # as opções, pra nunca mais quebrar por causa disso.
+            beam_size_efetivo = min(beam_size, 8) if beam_size > 0 else beam_size
+            if beam_size_efetivo != beam_size:
+                log_info(
+                    f"beam_size {beam_size} excede o máximo de decoders "
+                    f"do whisper.cpp (8) — usando {beam_size_efetivo}."
+                )
+            cmd += ["-bs", str(beam_size_efetivo)]
 
         return cmd
