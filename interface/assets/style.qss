@@ -231,3 +231,61 @@ QHeaderView::section {
     border-bottom: 1px solid #cbd5e1;
     padding: 4px 8px;
 }
+
+/* ── Painel lateral de progresso (transcrição em tempo real) ────────── */
+QWidget#painel_progresso {
+    background-color: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+}
+
+QLabel#label_painel_titulo {
+    font-weight: bold;
+    font-size: 13px;
+    color: #1e293b;
+    background-color: transparent;
+}
+
+QPushButton#btn_painel_fechar {
+    background-color: transparent;
+    color: #1e293b;
+    border: none;
+    border-radius: 4px;
+    font-size: 13px;
+}
+QPushButton#btn_painel_fechar:hover {
+    background-color: #e2e8f0;
+    color: #e53e3e;
+}
+
+QProgressBar#barra_painel_progresso {
+    background-color: #e2e8f0;
+    border: none;
+    border-radius: 4px;
+}
+QProgressBar#barra_painel_progresso::chunk {
+    background-color: #3b82f6;
+    border-radius: 4px;
+}
+
+QLabel#label_painel_percentual {
+    color: #1e293b;
+    font-size: 12px;
+    font-weight: bold;
+    background-color: transparent;
+}
+
+QLabel#label_painel_tempo {
+    color: #94a3b8;
+    font-size: 11px;
+    background-color: transparent;
+}
+
+QTextEdit#texto_painel_transcricao {
+    background-color: #ffffff;
+    color: #1e293b;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 10px;
+    font-size: 13px;
+}
