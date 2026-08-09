@@ -1,6 +1,8 @@
 # interface/dialogs/engine_config_dialog.py
 
-from PySide6.QtWidgets import QDialog, QVBoxLayout, QLabel, QCheckBox, QFrame
+from PySide6.QtWidgets import (
+    QDialog, QVBoxLayout, QLabel, QCheckBox, QFrame, QToolButton, QWidget,
+)
 from interface.combo_box import ComboBoxPosicaoFixa
 from PySide6.QtCore import Qt
 
@@ -9,13 +11,21 @@ from settings.i18n import t
 from transcriber.managers.engine_manager import EngineManager
 from utils.theme import aplicar_flags_dialogo_secundario
 
+# Opções expostas no combo de Temperature (valor, é o padrão do whisper.cpp?)
+_OPCOES_TEMPERATURE = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
+_TEMPERATURE_PADRAO  = 0.0
+
+# Opções expostas no combo de Beam Size (-1 = desativado/greedy decoding)
+_OPCOES_BEAM_SIZE = [-1, 1, 3, 5, 8]
+_BEAM_SIZE_PADRAO = 5
+
 
 class JanelaConfigEngine(QDialog):
     def __init__(self, parent, app):
         super().__init__(parent)
         self.app = app
         self.setWindowTitle(t("config_engine.titulo"))
-        self.setFixedSize(380, 440)
+        self.setFixedWidth(560)
         self.setWindowIcon(parent.windowIcon())
         aplicar_flags_dialogo_secundario(self)
         self._construir()
@@ -24,6 +34,10 @@ class JanelaConfigEngine(QDialog):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(24, 20, 24, 16)
         layout.setSpacing(6)
+        # Altura segue o conteúdo (necessário porque o painel de Opções
+        # Avançadas pode ser expandido/recolhido pelo usuário) — só a
+        # largura fica fixa, definida no __init__.
+        layout.setSizeConstraint(QVBoxLayout.SizeConstraint.SetFixedSize)
 
         engine_id = self.app.engine_id
         tema      = self.app.configs.get("tema", "light")
@@ -42,7 +56,7 @@ class JanelaConfigEngine(QDialog):
         layout.addWidget(lbl_idioma)
 
         self.combo_idioma = ComboBoxPosicaoFixa()
-        self.combo_idioma.setFixedWidth(220)
+        self.combo_idioma.setFixedWidth(380)
         self.combo_idioma.setMinimumHeight(34)
         for codigo in IDIOMAS_AUDIO_CODIGOS:
             self.combo_idioma.addItem(t(f"idioma.{codigo}"), userData=codigo)
@@ -64,7 +78,7 @@ class JanelaConfigEngine(QDialog):
         codigos = TRADUCAO_OPCOES.get(engine_id, ["disabled"])
 
         self.combo_traducao = ComboBoxPosicaoFixa()
-        self.combo_traducao.setFixedWidth(220)
+        self.combo_traducao.setFixedWidth(380)
         self.combo_traducao.setMinimumHeight(34)
         for codigo in codigos:
             if codigo == "disabled":
@@ -133,14 +147,96 @@ class JanelaConfigEngine(QDialog):
             layout.addWidget(aviso_vad)
 
         layout.addSpacing(12)
-        layout.addSpacing(8)
+        layout.addSpacing(14)
 
-        sep2 = QFrame()
-        sep2.setFrameShape(QFrame.Shape.HLine)
-        sep2.setFrameShadow(QFrame.Shadow.Sunken)
-        sep2.setStyleSheet(f"color: {cor_sep};")
-        layout.addWidget(sep2)
-        layout.addSpacing(4)
+        # ── Opções Avançadas (temperature / beam size) ──────────────────────
+        self._texto_base_avancado = t("config_engine.opcoes_avancadas")
+
+        self.btn_avancado = QToolButton()
+        self.btn_avancado.setCheckable(True)
+        self.btn_avancado.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_avancado.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextOnly)
+        self.btn_avancado.setStyleSheet(
+            "QToolButton { border: none; font-weight: bold; padding: 0; }"
+        )
+        layout.addWidget(self.btn_avancado)
+
+        self.painel_avancado = QWidget()
+        painel_layout = QVBoxLayout(self.painel_avancado)
+        painel_layout.setContentsMargins(0, 10, 0, 0)
+        painel_layout.setSpacing(6)
+
+        # Temperature
+        lbl_temp = QLabel(t("config_engine.temperature"))
+        lbl_temp.setStyleSheet("font-weight: bold;")
+        painel_layout.addWidget(lbl_temp)
+
+        palavra_padrao = t("config_engine.valor_padrao")
+
+        self.combo_temperature = ComboBoxPosicaoFixa()
+        self.combo_temperature.setFixedWidth(380)
+        self.combo_temperature.setMinimumHeight(34)
+        for valor in _OPCOES_TEMPERATURE:
+            rotulo = f"{valor:.1f}"
+            if valor == _TEMPERATURE_PADRAO:
+                rotulo += f" ({palavra_padrao})"
+            self.combo_temperature.addItem(rotulo, userData=valor)
+
+        temperature_atual = float(getattr(self.app, "temperature", _TEMPERATURE_PADRAO))
+        idx_temp = self.combo_temperature.findData(temperature_atual)
+        self.combo_temperature.setCurrentIndex(idx_temp if idx_temp >= 0 else 0)
+        self.combo_temperature.currentIndexChanged.connect(self._alterar_temperature)
+        painel_layout.addWidget(self.combo_temperature)
+
+        aviso_temp = QLabel(t("config_engine.temperature_aviso"))
+        aviso_temp.setStyleSheet(f"color: {cor_hint}; font-size: 11px;")
+        aviso_temp.setWordWrap(True)
+        painel_layout.addWidget(aviso_temp)
+
+        painel_layout.addSpacing(10)
+
+        # Beam Size
+        lbl_beam = QLabel(t("config_engine.beam_size"))
+        lbl_beam.setStyleSheet("font-weight: bold;")
+        painel_layout.addWidget(lbl_beam)
+
+        self.combo_beam_size = ComboBoxPosicaoFixa()
+        self.combo_beam_size.setFixedWidth(380)
+        self.combo_beam_size.setMinimumHeight(34)
+        for valor in _OPCOES_BEAM_SIZE:
+            if valor == -1:
+                rotulo = t("config_engine.beam_size_desativado")
+            else:
+                rotulo = str(valor)
+                if valor == _BEAM_SIZE_PADRAO:
+                    rotulo += f" ({palavra_padrao})"
+            self.combo_beam_size.addItem(rotulo, userData=valor)
+
+        beam_size_atual = int(getattr(self.app, "beam_size", _BEAM_SIZE_PADRAO))
+        idx_beam = self.combo_beam_size.findData(beam_size_atual)
+        self.combo_beam_size.setCurrentIndex(idx_beam if idx_beam >= 0 else 0)
+        self.combo_beam_size.currentIndexChanged.connect(self._alterar_beam_size)
+        painel_layout.addWidget(self.combo_beam_size)
+
+        aviso_beam = QLabel(t("config_engine.beam_size_aviso"))
+        aviso_beam.setStyleSheet(f"color: {cor_hint}; font-size: 11px;")
+        aviso_beam.setWordWrap(True)
+        painel_layout.addWidget(aviso_beam)
+
+        layout.addWidget(self.painel_avancado)
+
+        # Expande automaticamente se algum valor já estiver fora do padrão;
+        # senão começa recolhido.
+        self.painel_avancado.setVisible(False)
+        self.btn_avancado.toggled.connect(self._alternar_avancado)
+        fora_do_padrao = (
+            temperature_atual != _TEMPERATURE_PADRAO
+            or beam_size_atual != _BEAM_SIZE_PADRAO
+        )
+        self.btn_avancado.setChecked(fora_do_padrao)
+        self._atualizar_texto_avancado(fora_do_padrao)
+
+        layout.addSpacing(14)
 
         # ── Versão do binário ────────────────────────────────────────────────
         if engine_id == "whispercpp":
@@ -165,4 +261,20 @@ class JanelaConfigEngine(QDialog):
 
     def _alterar_gpu(self, ativo: bool):
         self.app.usar_gpu = ativo
+        self.app.salvar_configuracoes()
+
+    def _alternar_avancado(self, expandido: bool) -> None:
+        self.painel_avancado.setVisible(expandido)
+        self._atualizar_texto_avancado(expandido)
+
+    def _atualizar_texto_avancado(self, expandido: bool) -> None:
+        seta = "▾" if expandido else "▸"
+        self.btn_avancado.setText(f"{seta}  {self._texto_base_avancado}")
+
+    def _alterar_temperature(self):
+        self.app.temperature = float(self.combo_temperature.currentData())
+        self.app.salvar_configuracoes()
+
+    def _alterar_beam_size(self):
+        self.app.beam_size = int(self.combo_beam_size.currentData())
         self.app.salvar_configuracoes()
