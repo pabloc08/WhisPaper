@@ -6,7 +6,7 @@ import datetime
 from pathlib import Path
 from time import time
 
-from converter.converter import precisa_converter, converter_para_wav
+from converter.converter import precisa_converter, converter_para_wav, obter_duracao_segundos
 from converter.trimmer   import recortar
 from transcriber.managers.engine_manager import EngineManager
 from transcriber.request import TranscriptionRequest
@@ -16,15 +16,6 @@ from utils.logger        import (
     log_pipeline_inicio, log_pipeline_fim, log_pipeline_erro, log_cancelamento
 )
 from settings.i18n       import t
-
-
-def _formatar_progresso(segundos: int) -> str:
-    """Formata segundos transcritos como '[HH:MM:SS]' para o label_status."""
-    h, resto = divmod(segundos, 3600)
-    m, s     = divmod(resto, 60)
-    if h:
-        return f"[{h}:{m:02d}:{s:02d}]"
-    return f"[{m:02d}:{s:02d}]"
 
 
 class TranscriptionPipeline:
@@ -50,10 +41,15 @@ class TranscriptionPipeline:
         request:    TranscriptionRequest,
         model_path: Path,
         on_status:  callable = None,
+        on_segment: callable = None,
     ) -> TranscriptionResult:
         """
         Processa um arquivo completo:
           converter → recortar → transcrever → cleanup
+
+        on_segment: callback(segundos: int, percentual: float, texto: str),
+                    chamado a cada segmento reconhecido — usado pelo painel
+                    de progresso em tempo real. Opcional.
 
         Raises:
             qualquer exceção da engine ou conversor — tratamento no worker
@@ -122,6 +118,20 @@ class TranscriptionPipeline:
             if on_status:
                 on_status(t("status.transcrevendo"))
 
+            # Duração total do áudio (segundos) — usada só para calcular o
+            # percentual mostrado no painel de progresso. Falha em obter
+            # (ffprobe ausente, etc.) não impede a transcrição — o painel
+            # simplesmente fica sem percentual nesse caso.
+            duracao_total = obter_duracao_segundos(str(audio_path)) if on_segment else None
+
+            def _progresso(segundos: int, texto_segmento: str):
+                if on_segment:
+                    percentual = (
+                        min(100.0, (segundos / duracao_total) * 100)
+                        if duracao_total else 0.0
+                    )
+                    on_segment(segundos, percentual, texto_segmento)
+
             engine.transcribe(
                 audio_path       = audio_path,
                 model_path       = model_path,
@@ -131,10 +141,9 @@ class TranscriptionPipeline:
                 formato_saida    = request.formato_saida,
                 vad_filter       = request.vad_filter,
                 usar_gpu         = getattr(request, "usar_gpu", False),
-                on_progress      = (
-                    (lambda seg: on_status(_formatar_progresso(seg)))
-                    if on_status else None
-                ),
+                temperature      = getattr(request, "temperature", 0.0),
+                beam_size        = getattr(request, "beam_size", 5),
+                on_progress      = _progresso if (on_status or on_segment) else None,
             )
 
             # Determina o arquivo principal gerado para o resultado.
