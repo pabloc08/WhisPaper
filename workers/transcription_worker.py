@@ -14,13 +14,14 @@ from utils.logger                       import salvar_erro
 
 
 class TranscricaoWorker(QThread):
-    status_atualizado = Signal(str)
-    progresso_fila    = Signal(int, int)   # (idx, total) — emitido antes de cada arquivo
-    arquivo_concluido = Signal(str)
-    arquivo_erro      = Signal(str)
-    finalizado        = Signal(int, int, float)
-    cancelado         = Signal()
-    erro_geral        = Signal(str)
+    status_atualizado    = Signal(str)
+    progresso_fila       = Signal(int, int)     # (idx, total) — emitido antes de cada arquivo
+    progresso_transcricao = Signal(int, float, str)  # (segundos, percentual, texto_segmento)
+    arquivo_concluido    = Signal(str)
+    arquivo_erro         = Signal(str)
+    finalizado           = Signal(int, int, float)
+    cancelado            = Signal()
+    erro_geral           = Signal(str)
 
     def __init__(self, fila: list[dict], request_base: TranscriptionRequest):
         """
@@ -65,6 +66,8 @@ class TranscricaoWorker(QThread):
                     formato_saida        = self.request_base.formato_saida,
                     vad_filter           = self.request_base.vad_filter,
                     usar_gpu             = self.request_base.usar_gpu,
+                    temperature          = self.request_base.temperature,
+                    beam_size            = self.request_base.beam_size,
                 )
 
                 try:
@@ -72,6 +75,7 @@ class TranscricaoWorker(QThread):
                         request    = request,
                         model_path = model_path,
                         on_status  = self.status_atualizado.emit,
+                        on_segment = self.progresso_transcricao.emit,
                     )
                     self.arquivo_concluido.emit(entrada["path"])
 
