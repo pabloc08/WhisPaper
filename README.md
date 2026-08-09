@@ -100,9 +100,8 @@ cmake --build build -j --config Release
 
 ## Roadmap
 
-- Faster Whisper support.
-- Live transcription preview.
-- Real-time transcription progress.
+- New engine implementations planned for the future (the app is already built to support them).
+- ~~Live transcription preview with real-time progress.~~ Done!
 
 ## License
 
