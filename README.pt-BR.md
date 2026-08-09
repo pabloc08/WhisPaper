@@ -19,7 +19,7 @@
 
 ## O que é
 
-WhisPaper é um aplicativo multiplataforma (Windows e Linux) que fornece uma experiência facilitada para transcrição e tradução offline de arquivos de áudio e vídeo. Sem nuvem, sem upload: todo o processamento acontece localmente — o WhisPaper respeita a sua privacidade.
+WhisPaper é um aplicativo multiplataforma (Windows e Linux) que fornece uma experiência facilitada para transcrição e tradução de áudio/vídeo utilizando o Whisper (whisper.cpp). Sem nuvem, sem upload. Todo o processamento acontece localmente — o WhisPaper respeita a sua privacidade.
 
 <p align="center">
   <img src="interface/assets/readme/screenshot_principal.png" alt="Janela principal do WhisPaper" width="700">
@@ -102,9 +102,8 @@ cmake --build build -j --config Release
 
 ## Roadmap
 
-- Suporte ao Faster Whisper.
-- Preview da transcrição em tempo real.
-- Progresso da transcrição em tempo real.
+- Implementação de novas engines no futuro (o app já está pronto para recebê-las).
+- ~~Preview e progresso de transcrição em tempo real.~~ Feito!
 
 ## Licença
 
