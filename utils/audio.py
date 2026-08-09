@@ -27,5 +27,25 @@ def tocar_som(nome: str) -> None:
         log_erro(e, contexto=f"tocar_som('{nome}')")
 
 
+def pre_aquecer(nomes: list[str]) -> None:
+    """Carrega (sem tocar) os efeitos sonoros informados, forçando a
+    inicialização do backend de áudio do SO fora do caminho crítico.
+    Chamado uma vez no startup — sem isso, a primeira chamada real de
+    tocar_som() (ex: ao clicar em "Transcrever") trava a interface por
+    uma fração de segundo enquanto o backend (WASAPI/CoreAudio/etc.)
+    inicializa pela primeira vez no processo."""
+    for nome in nomes:
+        caminho = f":/sons/{nome}.wav"
+        if not QFile.exists(caminho):
+            continue
+        try:
+            efeito = QSoundEffect()
+            efeito.setSource(QUrl(f"qrc{caminho}"))
+            efeito.setVolume(1.0)
+            _cache[nome] = efeito
+        except Exception as e:
+            log_erro(e, contexto=f"pre_aquecer('{nome}')")
+
+
 def limpar_cache_audio() -> None:
     _cache.clear()
