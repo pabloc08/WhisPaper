@@ -22,6 +22,7 @@ from interface.status_icon import criar_label_icone_status as _criar_label_icone
 from interface.file_type_icons import criar_label_tipo_arquivo as _criar_label_tipo_arquivo
 from interface.drag_drop import DragDropMixin
 from interface.tray import TrayMixin
+from interface.transcription_panel import SetaExpansao, PainelProgresso
 
 from settings.config_manager import carregar_config, salvar_config
 from settings.i18n import t
@@ -185,11 +186,17 @@ class App(DragDropMixin, TrayMixin, QMainWindow):
         self.formato_saida        = self.configs.get("formato_saida", "ambos")
         self.vad_filter           = self.configs.get("vad_filter", False)
         self.usar_gpu             = self.configs.get("usar_gpu", False)
+        self.temperature          = self.configs.get("temperature", 0.0)
+        self.beam_size            = self.configs.get("beam_size", 5)
         self._usando_tray         = False
         self._tray_obj            = None
 
         self._icone_gear = _icone_engrenagem()
         self._construir_interface()
+        self._seta_painel      = SetaExpansao(self)
+        self._seta_painel.hide()   # filho de verdade herda visibilidade do pai por padrão
+        self._painel_progresso = None
+        self._seta_painel.clicked.connect(self._alternar_painel_progresso)
         # O mínimo é calculado a partir do próprio layout (e não um valor
         # fixo "chutado"). Um valor fixo menor do que o real acabava
         # permitindo encolher a janela além do que os widgets suportam,
@@ -767,8 +774,22 @@ class App(DragDropMixin, TrayMixin, QMainWindow):
 
         self._desabilitar_controles()
         self.barra_animada.reset()
-        self.barra_animada.start(self.configs.get("tema", "light"))
+        # Delay proposital: sem ele, a barra começa a "surgir" no exato
+        # instante do clique, quase junto com o resto da rajada de trabalho
+        # síncrono deste método. Esperar um pouco antes de iniciar dá uma
+        # pausa perceptível antes dela aparecer.
+        QTimer.singleShot(
+            300,
+            lambda: self.barra_animada.start(self.configs.get("tema", "light")),
+        )
         self.transcrevendo   = True
+        self._seta_painel.reposicionar(self)
+        self._seta_painel.raise_()
+        # Pequeno delay proposital: sem ele, o fade-in começa no meio da
+        # rajada de trabalho síncrono deste método (desabilitar controles,
+        # renderizar lista, iniciar o worker) e a transição soma à travadinha
+        # em vez de suavizá-la.
+        QTimer.singleShot(150, self._seta_painel.aparecer_animado)
         self._renderizar_lista()   # bloqueia os ✕ imediatamente
         self._fila_idx       = 1
         self._fila_total     = len(self.fila_arquivos)
@@ -790,6 +811,8 @@ class App(DragDropMixin, TrayMixin, QMainWindow):
             formato_saida        = self.formato_saida,
             vad_filter           = self.vad_filter,
             usar_gpu             = self.usar_gpu,
+            temperature          = self.temperature,
+            beam_size            = self.beam_size,
             usar_tempo           = self.checkbox_tempo.isChecked(),
             inicio               = self.entry_inicio.text(),
             fim                  = self.entry_fim.text(),
@@ -800,6 +823,7 @@ class App(DragDropMixin, TrayMixin, QMainWindow):
         )
         self._worker.status_atualizado.connect(self.atualizar_status)
         self._worker.progresso_fila.connect(self._on_progresso_fila)
+        self._worker.progresso_transcricao.connect(self._on_progresso_transcricao)
         self._worker.arquivo_concluido.connect(self._on_arquivo_concluido)
         self._worker.arquivo_erro.connect(self._on_arquivo_erro)
         self._worker.finalizado.connect(self._on_finalizado)
@@ -823,6 +847,13 @@ class App(DragDropMixin, TrayMixin, QMainWindow):
     def _on_progresso_fila(self, idx: int, total: int):
         self._fila_idx   = idx
         self._fila_total = total
+        if self._painel_progresso is not None and 1 <= idx <= len(self.fila_arquivos):
+            nome = self.fila_arquivos[idx - 1].get("nome", "")
+            self._painel_progresso.reset(nome)
+
+    def _on_progresso_transcricao(self, segundos: int, percentual: float, texto: str):
+        if self._painel_progresso is not None:
+            self._painel_progresso.atualizar_progresso(segundos, percentual, texto)
 
     def _on_arquivo_concluido(self, path: str):
         for e in self.fila_arquivos:
@@ -840,6 +871,7 @@ class App(DragDropMixin, TrayMixin, QMainWindow):
         self._spinner_timer.stop()
         self.label_spinner.setText("")
         self.transcrevendo = False
+        self._esconder_painel_lateral()
         self._reativar_controles()
         dur = _duracao_str(elapsed)
         if concluidos < total:
@@ -869,6 +901,7 @@ class App(DragDropMixin, TrayMixin, QMainWindow):
         self._spinner_timer.stop()
         self.label_spinner.setText("")
         self.transcrevendo = False
+        self._esconder_painel_lateral()
         self.barra_animada.cancel()
         self.atualizar_status(t("status.cancelado"))
         self._reativar_controles()
@@ -887,6 +920,7 @@ class App(DragDropMixin, TrayMixin, QMainWindow):
         self._spinner_timer.stop()
         self.label_spinner.setText("")
         self.transcrevendo = False
+        self._esconder_painel_lateral()
         self.barra_animada.cancel()
         self.atualizar_status(f"Erro: {msg}")
         if self.som_ativado:
@@ -959,6 +993,8 @@ class App(DragDropMixin, TrayMixin, QMainWindow):
             "pasta_saida":          self.pasta_saida,
             "vad_filter":           self.vad_filter,
             "usar_gpu":             self.usar_gpu,
+            "temperature":          self.temperature,
+            "beam_size":            self.beam_size,
             "inicio_personalizado": self.entry_inicio.text(),
             "fim_personalizado":    self.entry_fim.text(),
         })
@@ -969,7 +1005,69 @@ class App(DragDropMixin, TrayMixin, QMainWindow):
             try: item.unlink()
             except Exception: pass
 
+    # ------------------------------------------------------------------
+    # Painel lateral de progresso
+    # ------------------------------------------------------------------
+
+    def _alternar_painel_progresso(self):
+        if self._painel_progresso is None:
+            self._painel_progresso = PainelProgresso(self.configs.get("tema", "light"))
+            self._painel_progresso.fechar_solicitado.connect(self._fechar_painel_progresso)
+            if 1 <= self._fila_idx <= len(self.fila_arquivos):
+                nome = self.fila_arquivos[self._fila_idx - 1].get("nome", "")
+                self._painel_progresso.reset(nome)
+
+        if self._painel_progresso.isVisible():
+            self._fechar_painel_progresso()
+        else:
+            self._painel_progresso.abrir_animado(self)
+            self._seta_painel.set_aberta(True)
+
+    def _fechar_painel_progresso(self):
+        if self._painel_progresso is not None:
+            self._painel_progresso.fechar_animado()
+        self._seta_painel.set_aberta(False)
+
+    def _esconder_painel_lateral(self):
+        """Chamado ao fim/cancelamento/erro de uma transcrição — some com
+        a seta e fecha o painel, se estiver aberto."""
+        self._seta_painel.desaparecer_animado()
+        self._fechar_painel_progresso()
+
+    def _reposicionar_painel_lateral(self):
+        if self._seta_painel.isVisible():
+            self._seta_painel.reposicionar(self)
+        if self._painel_progresso is not None and self._painel_progresso.isVisible():
+            self._painel_progresso.posicionar_ao_lado(self)
+
+    def moveEvent(self, event):
+        super().moveEvent(event)
+        self._reposicionar_painel_lateral()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._reposicionar_painel_lateral()
+
+    def hideEvent(self, event):
+        # Cobre tanto minimizar para a bandeja quanto minimizar normal — o
+        # painel (janela top-level própria) não deve ficar flutuando com a
+        # principal escondida. O botão embutido já some sozinho, por ser
+        # filho de verdade da janela.
+        if self._painel_progresso is not None:
+            self._painel_progresso.hide()
+        super().hideEvent(event)
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        self._reposicionar_painel_lateral()
+
     def closeEvent(self, event):
+        # Fecha o painel — ainda é uma janela top-level própria, não filha,
+        # então não some sozinho. O botão embutido é filho de verdade da
+        # janela e é destruído junto automaticamente.
+        if self._painel_progresso is not None:
+            self._painel_progresso.close()
+
         # Cancela reset pendente para não disparar após destruição da janela
         if self._timer_reset_barra is not None:
             self._timer_reset_barra.stop()
@@ -1140,5 +1238,16 @@ def iniciar_app():
         except Exception:
             pass
     threading.Thread(target=_warmup_ffprobe, daemon=True).start()
+
+    # Pré-aquece os sons (QSoundEffect) — evita que a primeira chamada real
+    # de tocar_som() trave a interface ao inicializar o backend de áudio do SO.
+    # QSoundEffect precisa rodar na thread da GUI, então usamos QTimer em vez
+    # de uma thread — o singleShot(0, ...) só espera o loop de eventos girar
+    # uma vez, então o custo cai fora do clique do usuário.
+    from utils.audio import pre_aquecer
+    QTimer.singleShot(
+        0,
+        lambda: pre_aquecer(["som_transcricao", "som_cancelar", "som_notificacao"]),
+    )
 
     sys.exit(app.exec())
