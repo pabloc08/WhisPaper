@@ -80,9 +80,8 @@ def get_silero_model() -> Path | None:
 # GGML_BACKEND_DL=ON + GGML_CPU_ALL_VARIANTS=ON — o próprio binário
 # escolhe em runtime a melhor variante de CPU e usa Vulkan se disponível
 # e solicitado (ggml_backend_load_all() procura as .dll na pasta do exe).
-# Não existe mais separação blas/cpu/vulkan em disco; a escolha
-# GPU-sim/GPU-não é feita via flag de linha de comando (-ng), não por
-# binário diferente — ver whispercpp_engine.py.
+# A escolha GPU-sim/GPU-não é feita via flag de linha de comando (-ng),
+# não por binário diferente — ver whispercpp_engine.py.
 # ---------------------------------------------------------------------------
 
 _EXE = "whisper-cli.exe" if sys.platform == "win32" else "whisper-cli"
