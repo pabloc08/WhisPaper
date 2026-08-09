@@ -21,6 +21,8 @@ CONFIG_PADRAO = {
     "window_geometry":      "",
     "vad_filter":           False,
     "usar_gpu":             False,
+    "temperature":          0.0,
+    "beam_size":            5,
 }
 
 def carregar_config() -> dict:
