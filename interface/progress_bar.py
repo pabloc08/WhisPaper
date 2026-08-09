@@ -1,6 +1,6 @@
 # interface/progress_bar.py
 
-from PySide6.QtWidgets import QWidget
+from PySide6.QtWidgets import QWidget, QGraphicsOpacityEffect
 from PySide6.QtCore import (
     Qt, QPropertyAnimation, QEasingCurve,
     QSequentialAnimationGroup, QParallelAnimationGroup,
@@ -30,6 +30,12 @@ class BarraAnimada(QWidget):
         self._pos_x    = 0.0
         self._ativo    = False
         self._estatico = False
+
+        # ── Fade-in de opacidade (widget inteiro) ──────────────────────
+        self._efeito_opacidade = QGraphicsOpacityEffect(self)
+        self._efeito_opacidade.setOpacity(0.0)
+        self.setGraphicsEffect(self._efeito_opacidade)
+        self._anim_opacidade = None   # mantém viva a animação em curso
 
         # ── Animação de posição (ida) ─────────────────────────────────
         pos_ida = QPropertyAnimation(self, b"posX", self)
@@ -105,7 +111,6 @@ class BarraAnimada(QWidget):
         clara = self.COR_CLARA_DARK if tema == "dark" else self.COR_CLARA
 
         # Reconfigura os valores das animações de cor para o tema atual.
-        # A animação de posição não muda — só a de cor.
         seq       = self._anim
         p_ida     = seq.animationAt(0)   # QParallelAnimationGroup ida
         p_volta   = seq.animationAt(1)   # QParallelAnimationGroup volta
@@ -120,6 +125,17 @@ class BarraAnimada(QWidget):
         self._estatico = False
         self._ativo    = True
         self._cor      = clara
+
+        # Fade-in suave da barra inteira
+        self._efeito_opacidade.setOpacity(0.0)
+        anim_fade = QPropertyAnimation(self._efeito_opacidade, b"opacity", self)
+        anim_fade.setDuration(350)
+        anim_fade.setStartValue(0.0)
+        anim_fade.setEndValue(1.0)
+        anim_fade.setEasingCurve(QEasingCurve.Type.OutCubic)
+        self._anim_opacidade = anim_fade
+        anim_fade.start()
+
         self._anim.start()
         self.update()
 
@@ -167,5 +183,8 @@ class BarraAnimada(QWidget):
 
     def _parar_animacao(self):
         self._anim.stop()
+        if self._anim_opacidade is not None:
+            self._anim_opacidade.stop()
+        self._efeito_opacidade.setOpacity(1.0)
         self._ativo    = False
         self._estatico = True
