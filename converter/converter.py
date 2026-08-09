@@ -155,15 +155,15 @@ def converter_para_wav(
 # Duração
 # ---------------------------------------------------------------------------
 
-def obter_duracao(caminho: str) -> str:
+def obter_duracao_segundos(caminho: str) -> float | None:
     """
-    Retorna a duração do arquivo de mídia no formato "H:MM:SS" ou "MM:SS".
-    Retorna "" em caso de falha (ffprobe ausente, arquivo inválido, etc.).
+    Retorna a duração do arquivo de mídia em segundos (float), ou None
+    em caso de falha (ffprobe ausente, arquivo inválido, etc.).
     """
     try:
         _, ffprobe = obter_caminhos()
     except RuntimeError:
-        return ""
+        return None
 
     try:
         resultado = subprocess.run(
@@ -179,18 +179,28 @@ def obter_duracao(caminho: str) -> str:
             **kwargs_processo(),
         )
         if resultado.returncode != 0:
-            return ""
+            return None
         texto = resultado.stdout.strip()
         if not texto:
-            return ""
-        segundos_total = int(float(texto))
-        h, resto = divmod(segundos_total, 3600)
-        m, s     = divmod(resto, 60)
-        if h:
-            return f"{h}:{m:02d}:{s:02d}"
-        return f"{m}:{s:02d}"
+            return None
+        return float(texto)
     except Exception:
+        return None
+
+
+def obter_duracao(caminho: str) -> str:
+    """
+    Retorna a duração do arquivo de mídia no formato "H:MM:SS" ou "MM:SS".
+    Retorna "" em caso de falha (ffprobe ausente, arquivo inválido, etc.).
+    """
+    segundos_total = obter_duracao_segundos(caminho)
+    if segundos_total is None:
         return ""
+    h, resto = divmod(int(segundos_total), 3600)
+    m, s     = divmod(resto, 60)
+    if h:
+        return f"{h}:{m:02d}:{s:02d}"
+    return f"{m}:{s:02d}"
 
 
 # ---------------------------------------------------------------------------
