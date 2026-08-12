@@ -15,7 +15,7 @@ class DownloadWorker(QThread):
         super().__init__()
         self.engine_id = engine_id
         self.model_id = model_id
-        # Evento de cancelamento cooperativo nativo do downloader
+        # evento de cancelamento cooperativo nativo do downloader
         self._cancel_event = threading.Event()
 
     def cancelar(self):
@@ -26,8 +26,7 @@ class DownloadWorker(QThread):
             manager = ModelManager(self.engine_id)
             
             def cb_prog(baixado: int, total: int):
-                # O downloader já verifica o cancel_event internamente, 
-                # mas checamos aqui para evitar emitir sinais após o cancelamento.
+                # downloader já checa cancel_event, isso é só pra não emitir sinal depois de cancelar
                 if self._cancel_event.is_set():
                     return
                 
@@ -38,7 +37,7 @@ class DownloadWorker(QThread):
                 mb = baixado / 1024 / 1024
                 self.progresso.emit(pct, mb)
 
-            # O downloader gerencia .part, .part.json, retry e resume automaticamente.
+            # downloader cuida de .part, .part.json, retry e resume sozinho
             manager.baixar(
                 self.model_id, 
                 callback_progresso=cb_prog, 
@@ -49,8 +48,7 @@ class DownloadWorker(QThread):
                 self.concluido.emit(self.model_id)
                 
         except DownloadCancelado:
-            # Cancelamento limpo: não emite erro, o arquivo .part é preservado para retomada futura.
-            pass
+            pass   # cancelamento limpo — .part fica preservado pra retomar depois
         except Exception as e:
             if not self._cancel_event.is_set():
                 self.erro.emit(str(e))
