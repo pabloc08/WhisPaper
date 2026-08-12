@@ -1,20 +1,7 @@
 # interface/transcription_panel.py
-# Botão de expansão embutido na janela principal + painel lateral de
-# progresso em tempo real.
-#
-# - SetaExpansao: botão desenhado à mão (triângulo), filho de verdade da
-#   janela principal (App em gui.py) — fica encostado por dentro da borda
-#   direita, centralizado verticalmente. Acompanha o pai automaticamente;
-#   só precisa reposicionar (eixo X/Y) quando a janela é redimensionada.
-#   Clicar abre/fecha o PainelProgresso.
-# - PainelProgresso: janela sem moldura, ao lado da principal, com sombra
-#   de "flutuação", barra de progresso (%) + tempo decorrido, e o texto
-#   sendo "digitado" conforme os segmentos chegam da engine.
-#
-# PainelProgresso continua sendo um widget top-level "companheiro" (sem
-# parent Qt) porque precisa existir fora da área/geometria da janela
-# principal — sua posição é sincronizada manualmente via moveEvent/
-# resizeEvent de App (ver gui.py).
+# botão de expansão (SetaExpansao) + painel lateral de progresso (PainelProgresso).
+# PainelProgresso não tem parent Qt (fica fora da geometria da janela principal);
+# sua posição é sincronizada manualmente via moveEvent/resizeEvent de App (gui.py).
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
@@ -40,10 +27,8 @@ def _formatar_tempo(segundos: int) -> str:
 
 
 class SetaExpansao(QAbstractButton):
-    """Botão embutido, encostado por dentro da borda direita da janela
-    principal — um triângulo desenhado à mão (sem ícone/imagem externa),
-    que aponta pra fora quando fechado (convida a abrir o painel) e pra
-    dentro quando o painel já está aberto (convida a fechar)."""
+    """Triângulo desenhado à mão, encostado na borda direita da janela — aponta pra fora
+    quando fechado, pra dentro quando o painel está aberto."""
 
     LARGURA      = 22
     ALTURA       = 60
@@ -69,8 +54,7 @@ class SetaExpansao(QAbstractButton):
         self.update()
 
     def aparecer_animado(self):
-        """Mostra o botão com um fade-in suave (chamado ao iniciar uma
-        transcrição), em vez de aparecer abruptamente."""
+        """Mostra o botão com fade-in suave, ao iniciar uma transcrição."""
         self.show()
         self._efeito_opacidade.setOpacity(0.0)
         anim = QPropertyAnimation(self._efeito_opacidade, b"opacity", self)
@@ -82,8 +66,7 @@ class SetaExpansao(QAbstractButton):
         anim.start()
 
     def desaparecer_animado(self):
-        """Esconde o botão com fade-out suave (chamado ao terminar,
-        cancelar ou dar erro numa transcrição)."""
+        """Esconde o botão com fade-out suave, ao terminar/cancelar/dar erro."""
         anim = QPropertyAnimation(self._efeito_opacidade, b"opacity", self)
         anim.setDuration(280)
         anim.setStartValue(self._efeito_opacidade.opacity())
@@ -94,9 +77,7 @@ class SetaExpansao(QAbstractButton):
         anim.start()
 
     def reposicionar(self, janela):
-        """Posiciona o botão por dentro da borda direita da janela,
-        centralizado verticalmente. Chamado no resize (o botão já
-        acompanha o pai sozinho quando a janela só se move)."""
+        """Posiciona por dentro da borda direita, centralizado verticalmente."""
         x = janela.width() - self.LARGURA - self.MARGEM_BORDA
         y = (janela.height() - self.ALTURA) // 2
         self.move(x, y)
@@ -124,15 +105,13 @@ class SetaExpansao(QAbstractButton):
         em_hover = self.underMouse()
         w, h     = self.width(), self.height()
 
-        # Cápsula de fundo, mais visível no hover
+        # cápsula de fundo, mais visível no hover
         alpha = 70 if em_hover else 38
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(QColor(59, 130, 246, alpha))
         painter.drawRoundedRect(self.rect(), 10, 10)
 
-        # Triângulo — base larga, ponta mais fina, virado conforme o estado:
-        # fechado aponta pra fora (direita, convida a abrir); aberto aponta
-        # pra dentro (esquerda, convida a fechar).
+        # triângulo vira conforme o estado: fechado aponta pra fora, aberto pra dentro
         painter.setBrush(self._COR_HOVER if em_hover else self._COR)
 
         base_altura = 22
@@ -154,17 +133,53 @@ class SetaExpansao(QAbstractButton):
         painter.drawPath(path)
 
 
+class NavegadorFila(QWidget):
+    """Navegador discreto '‹ N/T ›' pra circular entre os textos da fila; só aparece com >1 arquivo."""
+
+    anterior_solicitado = Signal()
+    proximo_solicitado  = Signal()
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
+        self.btn_anterior = QPushButton("‹")
+        self.btn_anterior.setObjectName("btn_navegador_fila")
+        self.btn_anterior.setFixedSize(18, 18)
+        self.btn_anterior.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_anterior.clicked.connect(self.anterior_solicitado.emit)
+        layout.addWidget(self.btn_anterior)
+
+        self.label_posicao = QLabel("1/1")
+        self.label_posicao.setObjectName("label_navegador_fila")
+        self.label_posicao.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.label_posicao.setFixedWidth(34)
+        layout.addWidget(self.label_posicao)
+
+        self.btn_proximo = QPushButton("›")
+        self.btn_proximo.setObjectName("btn_navegador_fila")
+        self.btn_proximo.setFixedSize(18, 18)
+        self.btn_proximo.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_proximo.clicked.connect(self.proximo_solicitado.emit)
+        layout.addWidget(self.btn_proximo)
+
+    def definir_posicao(self, atual: int, total: int):
+        self.label_posicao.setText(f"{atual}/{total}")
+        self.btn_anterior.setEnabled(atual > 1)
+        self.btn_proximo.setEnabled(atual < total)
+
+
 class PainelProgresso(QWidget):
-    """Janela lateral sem moldura, flutuando ao lado da principal: barra de
-    progresso (%) + tempo decorrido + transcrição sendo escrita em tempo
-    real, com efeito de "máquina de escrever"."""
+    """Janela lateral sem moldura: barra de progresso, tempo decorrido e
+    transcrição sendo escrita em tempo real, efeito "máquina de escrever"."""
 
     fechar_solicitado = Signal()
 
     LARGURA           = 340
     MARGEM_SOMBRA      = 12   # espaço reservado pra sombra "vazar" por fora do card
-    GAP_VERTICAL       = 40   # folga simétrica topo/baixo — painel "flutua" no meio,
-                              # em vez de tentar bater pixel-a-pixel com a janela
+    GAP_VERTICAL       = 40   # folga simétrica topo/baixo, painel "flutua" no meio
     ALTURA_MINIMA      = 220
     VELOCIDADE_CHARS  = 2     # caracteres inseridos por tick
     INTERVALO_TICK_MS = 16
@@ -178,6 +193,13 @@ class PainelProgresso(QWidget):
         self._fila_texto   = ""
         self._texto_atual  = ""
         self._anim         = None   # mantém viva a animação de abrir/fechar
+
+        # histórico por arquivo — navega entre transcrições sem esperar reset a cada arquivo
+        self._historico          = []   # list[dict]: nome/texto/percentual/segundos
+        self._indice_ativo       = None # índice que o worker está transcrevendo agora
+        self._indice_visualizado = 0    # índice mostrado na tela
+        self._seguir_ativo       = True # True = acompanha o arquivo ativo automaticamente
+
         self._construir()
 
         self._timer_digitacao = QTimer(self)
@@ -189,9 +211,8 @@ class PainelProgresso(QWidget):
     def _construir(self):
         m = self.MARGEM_SOMBRA
 
-        # Widget externo transparente (só existe pra dar espaço à sombra);
-        # todo o visual real mora no "container", com fundo e cantos
-        # arredondados, estilizados via QSS (style.qss / style_dark.qss).
+        # widget externo transparente só existe pra dar espaço à sombra;
+        # o visual real mora no "container", estilizado via QSS
         layout_externo = QVBoxLayout(self)
         layout_externo.setContentsMargins(m, m, m, m)
 
@@ -257,41 +278,80 @@ class PainelProgresso(QWidget):
         self.texto.setFrameShape(QTextEdit.Shape.NoFrame)
         layout.addWidget(self.texto, 1)
 
+        # ── Rodapé: navegador da fila, discreto, alinhado à direita ──
+        row_rodape = QHBoxLayout()
+        row_rodape.setContentsMargins(0, 0, 0, 0)
+
+        self.navegador = NavegadorFila()
+        self.navegador.setVisible(False)   # só aparece com mais de 1 arquivo
+        self.navegador.anterior_solicitado.connect(self._ir_anterior)
+        self.navegador.proximo_solicitado.connect(self._ir_proximo)
+        row_rodape.addStretch()
+        row_rodape.addWidget(self.navegador)
+        layout.addLayout(row_rodape)
+
     # ------------------------------------------------------------------
     # API pública
     # ------------------------------------------------------------------
 
-    def reset(self, nome_arquivo: str = ""):
-        """Chamado a cada novo arquivo da fila — limpa texto e barra."""
+    def iniciar_fila(self, nomes: list):
+        """Chamado uma vez no início da transcrição: prepara o histórico e mostra
+        o navegador se houver mais de um arquivo."""
+        self._historico = [
+            {"nome": nome, "texto": "", "percentual": 0, "segundos": 0}
+            for nome in nomes
+        ]
+        self._indice_ativo       = None
+        self._indice_visualizado = 0
+        self._seguir_ativo       = True
+        self.navegador.setVisible(len(nomes) > 1)
+        self._atualizar_navegador()
+
+    def iniciar_arquivo(self, indice: int, nome: str = ""):
+        """Chamado a cada novo arquivo do worker; só limpa a tela se o painel
+        estiver acompanhando o arquivo ativo — senão o usuário mantém a navegação."""
         self._timer_digitacao.stop()
-        self._fila_texto  = ""
-        self._texto_atual = ""
-        self.texto.clear()
-        self.barra.setValue(0)
-        self.label_percentual.setText("0%")
-        self.label_tempo.setText("00:00")
-        self.label_titulo.setText(nome_arquivo or t("painel_progresso.titulo"))
+        self._fila_texto = ""
+
+        while len(self._historico) <= indice:
+            self._historico.append({"nome": "", "texto": "", "percentual": 0, "segundos": 0})
+        if nome:
+            self._historico[indice]["nome"] = nome
+
+        self._indice_ativo = indice
+        if self._seguir_ativo:
+            self._indice_visualizado = indice
+            self._renderizar_indice(indice)
+        self._atualizar_navegador()
 
     def atualizar_progresso(self, segundos: int, percentual: float, texto_segmento: str):
+        if self._indice_ativo is None:
+            return
+        item = self._historico[self._indice_ativo]
+
         pct = max(0, min(100, round(percentual)))
-        self.barra.setValue(pct)
-        self.label_percentual.setText(f"{pct}%")
-        self.label_tempo.setText(_formatar_tempo(segundos))
+        item["percentual"] = pct
+        item["segundos"]   = segundos
 
         texto_segmento = (texto_segmento or "").strip()
-        if not texto_segmento:
-            return
+        if texto_segmento:
+            prefixo = "\n\n" if item["texto"] else ""
+            pedaco  = prefixo + texto_segmento
+            item["texto"] += pedaco
 
-        prefixo = "\n\n" if (self._texto_atual or self._fila_texto) else ""
-        self._fila_texto += prefixo + texto_segmento
-        if not self._timer_digitacao.isActive():
-            self._timer_digitacao.start()
+            if self._indice_visualizado == self._indice_ativo:
+                self._fila_texto += pedaco
+                if not self._timer_digitacao.isActive():
+                    self._timer_digitacao.start()
+
+        if self._indice_visualizado == self._indice_ativo:
+            self.barra.setValue(pct)
+            self.label_percentual.setText(f"{pct}%")
+            self.label_tempo.setText(_formatar_tempo(segundos))
 
     def posicionar_ao_lado(self, janela):
-        """Reposicionamento imediato (sem animação) — usado ao arrastar ou
-        redimensionar a janela principal com o painel já aberto. Fica
-        centralizado verticalmente, com folga simétrica em cima/embaixo,
-        em vez de esticado pra bater exatamente com a altura da janela."""
+        """Reposiciona sem animação (drag/resize com o painel já aberto),
+        centralizado verticalmente com folga simétrica em cima/embaixo."""
         m = self.MARGEM_SOMBRA
         altura_conteudo = max(self.ALTURA_MINIMA, janela.height() - 2 * self.GAP_VERTICAL)
 
@@ -303,8 +363,7 @@ class PainelProgresso(QWidget):
         self.move(x, y)
 
     def abrir_animado(self, janela):
-        """Mostra o painel com leve slide + fade a partir da borda da
-        janela principal, em vez de aparecer abruptamente."""
+        """Mostra o painel com slide + fade a partir da borda da janela principal."""
         self.posicionar_ao_lado(janela)
         pos_final   = self.pos()
         pos_inicial = QPoint(pos_final.x() - 24, pos_final.y())
@@ -332,8 +391,7 @@ class PainelProgresso(QWidget):
         grupo.start()
 
     def fechar_animado(self):
-        """Esconde o painel com slide + fade reverso (chamado ao clicar em
-        fechar ou recolher pela setinha)."""
+        """Esconde o painel com slide + fade reverso."""
         pos_atual   = self.pos()
         pos_destino = QPoint(pos_atual.x() - 24, pos_atual.y())
 
@@ -359,6 +417,45 @@ class PainelProgresso(QWidget):
     # ------------------------------------------------------------------
     # Interno
     # ------------------------------------------------------------------
+
+    def _ir_anterior(self):
+        self._seguir_ativo = False
+        novo_indice = max(0, self._indice_visualizado - 1)
+        self._navegar_para(novo_indice)
+
+    def _ir_proximo(self):
+        ultimo_indice = len(self._historico) - 1
+        novo_indice   = min(ultimo_indice, self._indice_visualizado + 1)
+        # volta a acompanhar automaticamente se alcançar o arquivo ativo
+        self._seguir_ativo = (novo_indice == self._indice_ativo)
+        self._navegar_para(novo_indice)
+
+    def _navegar_para(self, indice: int):
+        self._timer_digitacao.stop()
+        self._fila_texto = ""
+        self._indice_visualizado = indice
+        self._renderizar_indice(indice)
+        self._atualizar_navegador()
+
+    def _renderizar_indice(self, indice: int):
+        item = self._historico[indice]
+        self._texto_atual = item["texto"]
+        self.texto.setPlainText(item["texto"])
+        cursor = self.texto.textCursor()
+        cursor.movePosition(cursor.MoveOperation.End)
+        self.texto.setTextCursor(cursor)
+        self.barra.setValue(item["percentual"])
+        self.label_percentual.setText(f"{item['percentual']}%")
+        self.label_tempo.setText(_formatar_tempo(item["segundos"]))
+        self.label_titulo.setText(item["nome"] or t("painel_progresso.titulo"))
+
+    def _atualizar_navegador(self):
+        total = len(self._historico)
+        if total <= 1:
+            self.navegador.setVisible(False)
+            return
+        self.navegador.setVisible(True)
+        self.navegador.definir_posicao(self._indice_visualizado + 1, total)
 
     def _tick_digitacao(self):
         if not self._fila_texto:
