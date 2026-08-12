@@ -68,7 +68,7 @@ class JanelaConfigGeral(QDialog):
             self.combo_minimizar.setCurrentIndex(idx_min)
         self.combo_minimizar.currentIndexChanged.connect(self._alterar_minimizar)
 
-        # Esconde a opção no GNOME — systray não é suportado nativamente
+        # esconde no GNOME — systray não é suportado nativamente
         _desktop = os.environ.get("XDG_CURRENT_DESKTOP", "").lower()
         if "gnome" not in _desktop:
             layout.addLayout(_row(t("config_geral.minimizar"), self.combo_minimizar))
@@ -170,11 +170,13 @@ class JanelaConfigGeral(QDialog):
         self.app.configs["idioma_app"] = idioma_novo
         salvar_config(self.app.configs)
         from PySide6.QtWidgets import QMessageBox
-        QMessageBox.information(
-            self,
-            t("config_geral.titulo"),
-            t("config_geral.msg_reiniciar"),
-        )
+        from utils.icones_msgbox import icone_info_circular
+        caixa = QMessageBox(self)
+        caixa.setWindowTitle(t("config_geral.titulo"))
+        caixa.setText(t("config_geral.msg_reiniciar"))
+        # ícone próprio em vez do QMessageBox.information() padrão — o nativo varia entre Windows/Linux e quebra a consistência visual
+        caixa.setIconPixmap(icone_info_circular(48, cor_fundo="#3b82f6"))
+        caixa.exec()
 
     def _alterar_som(self):
         self.app.configs["som"] = self.combo_som.currentData()
