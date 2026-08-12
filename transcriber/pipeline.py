@@ -1,6 +1,5 @@
 # transcriber/pipeline.py
-# Orquestra o fluxo completo de transcrição — puro Python, sem Qt.
-# O worker chama processar() e só cuida de threading e signals.
+# Orquestra a transcrição completa — puro Python, sem Qt (worker cuida de threading/signals)
 
 import datetime
 from pathlib import Path
@@ -19,10 +18,7 @@ from settings.i18n       import t
 
 
 class TranscriptionPipeline:
-    """
-    Executa o pipeline completo para um único arquivo.
-    Não conhece Qt — pode ser testado sem QApplication.
-    """
+    """Executa o pipeline completo pra um arquivo. Sem Qt, testável sem QApplication."""
 
     def __init__(self):
         self._engine_ativa = None
@@ -44,15 +40,11 @@ class TranscriptionPipeline:
         on_segment: callable = None,
     ) -> TranscriptionResult:
         """
-        Processa um arquivo completo:
-          converter → recortar → transcrever → cleanup
+        converter → recortar → transcrever → cleanup
 
-        on_segment: callback(segundos: int, percentual: float, texto: str),
-                    chamado a cada segmento reconhecido — usado pelo painel
-                    de progresso em tempo real. Opcional.
-
-        Raises:
-            qualquer exceção da engine ou conversor — tratamento no worker
+        on_segment: callback(segundos, percentual, texto) por segmento,
+        usado pelo painel de progresso em tempo real. Opcional.
+        Exceções da engine/conversor sobem pro worker tratar.
         """
         t_inicio        = time()
         wav_convertido  = None
@@ -78,9 +70,9 @@ class TranscriptionPipeline:
                 audio_path     = Path(wav_str)
                 wav_convertido = audio_path          # marcar para cleanup
             else:
-                # Já é WAV compatível — whisper-cli só lê, nunca escreve no original
+                # já é WAV compatível — whisper-cli só lê, não mexe no original
                 audio_path     = request.arquivo
-                wav_convertido = None                # nada para limpar
+                wav_convertido = None
 
             # ── 2. Recortar (só com arquivo único e tempo configurado) ───────
             if request.usar_tempo:
@@ -108,8 +100,7 @@ class TranscriptionPipeline:
                     f"Pasta de destino não encontrada: {request.pasta_saida}"
                 )
 
-            # gerar_nome_saida devolve sempre um path .txt como base de nome.
-            # Retiramos o sufixo para que a engine adicione .txt ou .srt conforme o formato.
+            # tira o sufixo — a engine adiciona .txt/.srt conforme o formato
             destino_base = gerar_nome_saida(
                 request.arquivo.name, request.pasta_saida, agora
             )
@@ -118,10 +109,7 @@ class TranscriptionPipeline:
             if on_status:
                 on_status(t("status.transcrevendo"))
 
-            # Duração total do áudio (segundos) — usada só para calcular o
-            # percentual mostrado no painel de progresso. Falha em obter
-            # (ffprobe ausente, etc.) não impede a transcrição — o painel
-            # simplesmente fica sem percentual nesse caso.
+            # duração total só pra calcular % no painel; se falhar, segue sem percentual
             duracao_total = obter_duracao_segundos(str(audio_path)) if on_segment else None
 
             def _progresso(segundos: int, texto_segmento: str):
@@ -145,6 +133,10 @@ class TranscriptionPipeline:
                 beam_size        = getattr(request, "beam_size", 5),
                 on_progress      = _progresso if (on_status or on_segment) else None,
             )
+
+            # força 100% no fim — VAD pode cortar silêncio final e travar a barra antes disso
+            if on_segment and duracao_total:
+                on_segment(int(duracao_total), 100.0, "")
 
             # Determina o arquivo principal gerado para o resultado.
             if request.formato_saida in ("srt", "srt_vtt", "todos"):
