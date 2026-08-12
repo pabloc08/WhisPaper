@@ -25,7 +25,7 @@ def _cores_tema(tema: str = "light") -> dict:
             "btn_sec_pressed": "#1e293b",
         }
     return {
-        "bg":              "#f5f5f5",
+        "bg":              "#fafafa",
         "border":          "#cbd5e1",
         "titulo":          "#0f172a",
         "corpo":           "#475569",
