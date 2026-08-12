@@ -101,21 +101,18 @@ if __name__ == "__main__":
     from PySide6.QtWidgets import QApplication
     _app = QApplication.instance() or QApplication(sys.argv)
 
-    # Sem isso, no Windows 11 a animação do combo box interrompe o
-    # reposicionamento de ComboBoxPosicaoFixa (interface/combo_box.py) e
-    # o popup pisca antes de assentar.
+    # sem isso, no Windows 11 a animação do combo interrompe o reposicionamento e o popup pisca
     from PySide6.QtCore import Qt as _Qt
     _app.setEffectEnabled(_Qt.UIEffect.UI_AnimateCombo, False)
 
-    # QSS aplicado antes de qualquer janela (inclusive o wizard) — sem
-    # isso os widgets só pegam o estilo certo depois da primeira interação.
+    # QSS antes de qualquer janela (inclusive o wizard), senão o estilo só assenta após a primeira interação
     from utils.theme import carregar_qss, tema_inicial
     _app.setStyleSheet(carregar_qss(tema_inicial()))
 
     if not _checar_ffmpeg_e_onboarding(_app):
         sys.exit(1)
 
-    # Reaplica com o idioma final (pode ter mudado no wizard)
+    # reaplica com o idioma final (pode ter mudado no wizard)
     init_i18n(carregar_config().get("idioma_app", "pt_BR"))
 
     iniciar_app()
