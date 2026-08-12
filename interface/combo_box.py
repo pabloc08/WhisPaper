@@ -1,20 +1,8 @@
 # interface/combo_box.py
-# ComboBox com popup 100% customizado — não usa mais o popup nativo do
-# QComboBox (QComboBoxPrivateContainer). Isso existe porque o popup
-# nativo, no Windows, causava uma moldura preta visível ao redor do
-# dropdown (ver histórico de investigação: margem interna de ~5px
-# reservada pelo Qt na QListView, sem relação com o QBoxLayout; frame
-# nativo do QFrame interno; timing de resize inconsistente). Depois de
-# tentar várias camadas de correção em cima do widget privado do Qt
-# (máscara, fundo, frame, eventFilter de resize), a solução definitiva
-# foi parar de usar esse widget interno e desenhar o dropdown do zero,
-# com controle total sobre geometria, transparência e renderização.
-#
-# A classe ainda desenha o item selecionado/hover com cantos
-# arredondados — o Qt ignora border-radius em ::item:selected via QSS
-# em vários estilos (Fusion, Breeze, windowsvista/windows11), então o
-# retângulo de seleção sempre pintava quadrado por baixo,
-# independente do QSS.
+# ComboBox com popup 100% custom — o nativo (QComboBoxPrivateContainer) causava
+# moldura preta no Windows e ignorava border-radius em ::item:selected via QSS.
+# Depois de tentar corrigir por cima do widget privado, foi mais simples desenhar
+# o dropdown do zero, com controle total de geometria/transparência/renderização.
 
 from PySide6.QtWidgets import (
     QComboBox, QApplication, QStyledItemDelegate, QStyle,
@@ -38,8 +26,7 @@ def _cores_selecao():
 
 
 def _cor_fundo_popup() -> QColor:
-    """Mesma cor de fundo usada em 'QComboBox QAbstractItemView' no QSS
-    de cada tema (style.qss / style_dark.qss)."""
+    """Mesma cor do QComboBox QAbstractItemView no QSS de cada tema."""
     if _tema_atual() == "dark":
         return QColor("#212227")
     return QColor("white")
@@ -52,22 +39,10 @@ def _cor_borda_popup() -> QColor:
 
 
 class DelegateItemArredondado(QStyledItemDelegate):
-    """
-    Desenha o item da lista com cantos arredondados quando selecionado/
-    destacado (seleção via mouse ou teclado — ver _ListaPopup, que unifica
-    os dois num único estado de "realce", pintado aqui sempre como
-    State_Selected).
-    """
+    """Desenha o item com cantos arredondados quando selecionado/hover."""
 
     def sizeHint(self, option, index):
-        """
-        Altura fixa do item, independente do estilo nativo da plataforma.
-
-        Sem isso, a altura vem do cálculo padrão do QStyledItemDelegate,
-        que no Windows (estilo windowsvista/windows11) reserva bem mais
-        espaço vertical por item do que no Linux (Fusion/Breeze) — daí as
-        opções aparecerem bem mais altas no Windows com o mesmo QSS.
-        """
+        """Altura fixa do item — Windows reserva mais espaço vertical que Linux com o mesmo QSS."""
         tamanho = super().sizeHint(option, index)
         altura_texto = option.fontMetrics.height()
         tamanho.setHeight(altura_texto + 14)  # ~7px de respiro em cima/embaixo
@@ -117,12 +92,7 @@ class DelegateItemArredondado(QStyledItemDelegate):
 
 
 class _ListaPopup(QWidget):
-    """
-    Popup do dropdown, desenhado inteiramente por nós — sem depender do
-    QComboBoxPrivateContainer interno do Qt. Suporta rolagem (necessário
-    pra listas longas, ex.: seletor de idioma com ~99 itens), navegação
-    por teclado (setas/Enter/Esc) e busca por digitação (type-ahead).
-    """
+    """Popup do dropdown desenhado por nós — scroll, setas/Enter/Esc e busca por digitação."""
 
     _RAIO = 8
     _MARGEM = 6
@@ -315,8 +285,7 @@ class _ListaPopup(QWidget):
 
 
 class ComboBoxPosicaoFixa(QComboBox):
-    """QComboBox com popup 100% customizado (ver _ListaPopup) — não usa
-    mais o mecanismo nativo de popup do Qt."""
+    """QComboBox com popup 100% customizado (ver _ListaPopup)."""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -329,8 +298,7 @@ class ComboBoxPosicaoFixa(QComboBox):
         return self._popup
 
     def showPopup(self) -> None:
-        # Não chama super().showPopup() de propósito — o popup nativo do
-        # Qt não é usado. Ver comentário no topo do arquivo.
+        # sem super().showPopup() de propósito — não usamos o popup nativo (ver topo do arquivo)
         popup = self._obter_popup()
         popup.preparar_para_abrir()
         popup.resize(popup.sizeHint())
@@ -359,6 +327,6 @@ class ComboBoxPosicaoFixa(QComboBox):
         popup.setFocus(Qt.FocusReason.PopupFocusReason)
 
     def hidePopup(self) -> None:
-        # Idem: não chama super().hidePopup() — sem popup nativo pra fechar.
+        # idem: sem popup nativo, não há o que fechar via super()
         if self._popup is not None and self._popup.isVisible():
             self._popup.close()
