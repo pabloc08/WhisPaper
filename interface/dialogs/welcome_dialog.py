@@ -1,8 +1,5 @@
 # interface/dialogs/welcome_dialog.py
-#
-# Wizard de boas-vindas — 2 passos:
-#   Passo 0 — FFmpeg  (bloqueante; só aparece quando FFmpeg está ausente)
-#   Passo 1 — Tutorial (scroll único: arquivos, engine/modelo, preferências)
+# wizard de boas-vindas: FFmpeg (se ausente) + tutorial
 
 import sys
 
@@ -24,7 +21,7 @@ from workers.ffmpeg_worker   import FFmpegWorker
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Estilos de botão compartilhados
+# estilos de botão compartilhados
 # ──────────────────────────────────────────────────────────────────────────────
 
 _CSS_BTN_AZUL = (
@@ -41,6 +38,21 @@ _CSS_BTN_AZUL = (
     "QPushButton:pressed { background-color: #1d4ed8; }"
 )
 
+# mesma tonalidade do botão "?"/engrenagens, pra não destoar
+_CSS_BTN_AZUL_SUAVE = (
+    "QPushButton {"
+    "  background-color: #5b9bd5;"
+    "  color: #ffffff;"
+    "  border: none;"
+    "  border-radius: 10px;"
+    "  font-size: 9pt;"
+    "  font-weight: 600;"
+    "  padding: 0 16px;"
+    "}"
+    "QPushButton:hover   { background-color: #4a87c2; }"
+    "QPushButton:pressed { background-color: #3a72a8; }"
+)
+
 _CSS_BTN_SECUNDARIO = (
     "QPushButton {"
     "  background-color: transparent;"
@@ -55,9 +67,24 @@ _CSS_BTN_SECUNDARIO = (
     "QPushButton:pressed { background-color: #e2e8f0; }"
 )
 
+# variante dark — a original não segue o tema e o hover ficava claro demais
+_CSS_BTN_SECUNDARIO_DARK = (
+    "QPushButton {"
+    "  background-color: transparent;"
+    "  color: #8B8F9A;"
+    "  border: 1.5px solid #3A3B42;"
+    "  border-radius: 10px;"
+    "  font-size: 9pt;"
+    "  font-weight: 600;"
+    "  padding: 0 16px;"
+    "}"
+    "QPushButton:hover   { background-color: #2A2B30; border-color: #4A4F5C; }"
+    "QPushButton:pressed { background-color: #212227; }"
+)
+
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Helpers
+# helpers
 # ──────────────────────────────────────────────────────────────────────────────
 
 def _sep() -> QFrame:
@@ -100,7 +127,7 @@ def _gear_pixmap(size: int = 14) -> QPixmap | None:
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Indicador de passos
+# indicador de passos
 # ──────────────────────────────────────────────────────────────────────────────
 
 class _Indicador(QWidget):
@@ -147,7 +174,7 @@ class _Indicador(QWidget):
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Passo 0 — Preferências (idioma + tema)
+# passo 0 — preferências (idioma + tema)
 # ──────────────────────────────────────────────────────────────────────────────
 
 class _PassoPreferencias(QWidget):
@@ -226,13 +253,7 @@ class _PassoPreferencias(QWidget):
         self._lbl_idioma.setObjectName("label_prefs_secao")
         ci_lay.addWidget(self._lbl_idioma)
         self._combo_idioma = ComboBoxPosicaoFixa()
-        # Bandeiras desenhadas via QPainter (utils/flags.py) em vez de
-        # emoji de bandeira (🇧🇷/🇺🇸): no Windows, o motor de texto do Qt em
-        # widgets com paint custom não compõe os dois "regional indicators"
-        # numa bandeira só, e cada um cai sozinho no fallback — aparecendo
-        # como as letras "BR"/"US" soltas em vez da bandeira. Desenhando a
-        # própria imagem não há composição de glyph nenhuma envolvida, então
-        # o resultado é idêntico em qualquer SO.
+        # bandeiras via QPainter, não emoji — Qt não compõe os regional indicators certo no Windows
         _tamanho_bandeira = QSize(20, 14)
         self._combo_idioma.setIconSize(_tamanho_bandeira)
         self._combo_idioma.addItem(icone_bandeira_brasil(_tamanho_bandeira), "  Português", "pt_BR")
@@ -303,7 +324,7 @@ class _PassoPreferencias(QWidget):
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Passo 1 — FFmpeg  (visual idêntico ao PopupFFmpegAusente)
+# passo 1 — FFmpeg (visual idêntico ao PopupFFmpegAusente)
 # ──────────────────────────────────────────────────────────────────────────────
 
 # ── CSS dos anéis de ícone (dark-aware) ──────────────────────────────────────
@@ -434,10 +455,7 @@ def _is_dark() -> bool:
 
 
 def _icon_ring_lbl(icon_path, size: int = 64, css: str = "") -> QLabel:
-    """Cria um label circular com ícone centralizado.
-
-    Aceita tanto caminho de disco (str/Path) quanto recurso Qt (":/icons/...").
-    """
+    """Cria um label circular com ícone centralizado (aceita path de disco ou recurso Qt)."""
     lbl = QLabel()
     lbl.setFixedSize(size, size)
     lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -764,8 +782,7 @@ class _PassoFFmpeg(QWidget):
         self._dlg._atualizar_botoes()
 
     def atualizar_tema(self, _tema: str = ""):
-        """Re-renderiza o passo FFmpeg com o tema atual — chamado quando o usuário troca o tema."""
-        # Só re-renderiza se não há download em andamento, para não interromper a barra de progresso.
+        """Re-renderiza o passo FFmpeg com o tema atual, se não há download em andamento."""
         if self._worker is None:
             self._render()
 
@@ -778,7 +795,7 @@ class _PassoFFmpeg(QWidget):
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Helper — imagem dinâmica por idioma/tema
+# helper — imagem dinâmica por idioma/tema
 # ──────────────────────────────────────────────────────────────────────────────
 
 def _img_tutorial(pt_light: str, pt_dark: str,
@@ -807,7 +824,7 @@ def _img_tutorial(pt_light: str, pt_dark: str,
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Passo 1 — Tutorial (scroll único)
+# passo 1 — tutorial (scroll único)
 # ──────────────────────────────────────────────────────────────────────────────
 
 class _PassoTutorial(QWidget):
@@ -976,9 +993,9 @@ class _PassoTutorial(QWidget):
 
         lay.addSpacing(6)
 
-        # Hint box
+        # hint box com a cor de identidade do app, texto com mais contraste que o cinza padrão
         hint = QFrame()
-        hint.setObjectName("linha_arquivo")
+        hint.setObjectName("caixa_dica")
         hl = QHBoxLayout(hint)
         hl.setContentsMargins(12, 10, 12, 10)
         hl.setSpacing(10)
@@ -992,9 +1009,9 @@ class _PassoTutorial(QWidget):
             gear_lbl.setStyleSheet("background:transparent;")
             hl.addWidget(gear_lbl)
         else:
-            hl.addWidget(_lbl("⚙", obj="label_cinza"))
+            hl.addWidget(_lbl("⚙", obj="label_dica"))
 
-        txt = _lbl(t("boas_vindas.tutorial.hint"), obj="label_cinza", wrap=True)
+        txt = _lbl(t("boas_vindas.tutorial.hint"), obj="label_dica", wrap=True)
         hl.addWidget(txt, stretch=1)
 
         lay.addWidget(hint)
@@ -1063,7 +1080,7 @@ class _PassoTutorial(QWidget):
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Janela principal
+# janela principal
 # ──────────────────────────────────────────────────────────────────────────────
 
 class JanelaBoasVindas(QDialog):
@@ -1126,9 +1143,7 @@ class JanelaBoasVindas(QDialog):
             self._sep_rodape.hide()
             self._widget_rodape.hide()
 
-        # Inicializar referências de botões antes de instanciar _PassoFFmpeg,
-        # pois _PassoFFmpeg.__init__ pode disparar _set_ffmpeg_ok → _atualizar_botoes
-        # imediatamente, antes de _build_rodape() criar os botões de verdade.
+        # inicializa antes de instanciar _PassoFFmpeg, que pode disparar _atualizar_botoes cedo
         self._btn_ant  = None
         self._btn_prox = None
 
@@ -1150,8 +1165,7 @@ class JanelaBoasVindas(QDialog):
             # Preferências → Tutorial  (2 dots)
             self._passos = [self._prefs_p, self._tutorial]
         else:
-            # Preferências → FFmpeg → Tutorial  (3 dots)
-            # _passos provisório antes de instanciar _PassoFFmpeg
+            # _passos provisório até instanciar _PassoFFmpeg
             self._passos = [self._tutorial]
             self._ffmpeg_p = _PassoFFmpeg(self)
             self._passos = [self._prefs_p, self._ffmpeg_p, self._tutorial]
@@ -1192,11 +1206,8 @@ class JanelaBoasVindas(QDialog):
             nav = QHBoxLayout()
             nav.setSpacing(0)
 
-            # QStackedWidget ocupa sempre o mesmo espaço (90 × 32).
-            # Página 0 → widget transparente (fantasma): nenhum botão visível.
-            # Página 1 → botão "Anterior" real.
-            # Assim o indicador de passos permanece centralizado em TODOS os passos,
-            # inclusive no passo 0 onde "Anterior" não faz sentido.
+            # QStackedWidget ocupa o mesmo espaço sempre: fantasma no passo 0 (sem "Anterior"),
+            # botão real depois — assim o indicador fica sempre centralizado
             from PySide6.QtWidgets import QStackedWidget
             self._btn_ant_stack = QStackedWidget()
             self._btn_ant_stack.setFixedWidth(90)
@@ -1260,8 +1271,7 @@ class JanelaBoasVindas(QDialog):
 
         ultimo = self._passo_atual == len(self._passos) - 1
 
-        # Alterna entre fantasma (idx 0) e botão real (idx 1)
-        # para manter o espaço ocupado e os dots sempre centrados
+        # alterna entre fantasma e botão real, mantendo os dots centrados
         self._btn_ant_stack.setCurrentIndex(1 if self._passo_atual > 0 else 0)
 
         self._btn_prox.setText(
@@ -1307,7 +1317,7 @@ class JanelaBoasVindas(QDialog):
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Utilitário — main.py
+# utilitário — main.py
 # ──────────────────────────────────────────────────────────────────────────────
 
 def deve_mostrar_boas_vindas() -> bool:
