@@ -80,8 +80,7 @@ class TranscricaoWorker(QThread):
                     self.arquivo_concluido.emit(entrada["path"])
 
                 except TranscricaoCancelada:
-                    # Cancelamento não é erro — não loga, não marca o arquivo como falho.
-                    # O flag _cancelado já está True; o loop encerra na próxima iteração.
+                    # cancelamento não é erro — não loga, o flag _cancelado encerra o loop na próxima volta
                     self._cancelado = True
                     break
 
