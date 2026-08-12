@@ -3,7 +3,7 @@
    ajuste as cores e carregue via CONFIG ou variável de ambiente. */
 
 QMainWindow, QDialog {
-    background-color: #f5f5f5;
+    background-color: #fafafa;
 }
 
 QWidget {
@@ -17,7 +17,7 @@ QWidget {
 QWidget#central_widget,
 QDialog,
 QDialog > QWidget {
-    background-color: #f5f5f5;
+    background-color: #fafafa;
 }
 
 /* Botão primário */
@@ -47,13 +47,14 @@ QPushButton#btn_config_geral:disabled {
     border: 1px solid #e2e8f0;
 }
 
-/* Botão cancelar */
+/* Botão cancelar — mesmo tom vermelho usado no wave congelado
+   (erro/cancelamento), mais suave que o vermelho saturado anterior */
 QPushButton#btn_cancelar {
-    background-color: #e53e3e;
+    background-color: #f87171;
 }
-QPushButton#btn_cancelar:hover   { background-color: #c53030; }
-QPushButton#btn_cancelar:pressed { background-color: #9b2c2c; }
-QPushButton#btn_cancelar:disabled { background-color: #fc8181; }
+QPushButton#btn_cancelar:hover   { background-color: #ef4444; }
+QPushButton#btn_cancelar:pressed { background-color: #dc2626; }
+QPushButton#btn_cancelar:disabled { background-color: #fca5a5; }
 
 /* Botão ícone (engrenagem) */
 QPushButton#btn_icone {
@@ -77,14 +78,16 @@ QPushButton#btn_link {
 }
 QPushButton#btn_link:hover { color: #2563eb; }
 
-/* Botão remover (vermelho) */
+/* Botão remover (vermelho) — mesmo tom suave do botão cancelar, em vez
+   do vermelho saturado anterior */
 QPushButton#btn_remover {
-    background-color: #e53e3e;
+    background-color: #f87171;
     padding: 4px 10px;
     font-size: 9pt;
 }
-QPushButton#btn_remover:hover   { background-color: #c53030; }
-QPushButton#btn_remover:pressed { background-color: #9b2c2c; }
+QPushButton#btn_remover:hover   { background-color: #ef4444; }
+QPushButton#btn_remover:pressed { background-color: #dc2626; }
+QPushButton#btn_remover:disabled { background-color: #fca5a5; }
 
 /* ComboBox */
 QComboBox {
@@ -144,7 +147,7 @@ QCheckBox::indicator {
     border-radius: 3px;
     background: white;
 }
-QCheckBox::indicator:checked  { background-color: #3b82f6; border-color: #3b82f6; }
+QCheckBox::indicator:checked  { background-color: #5b9bd5; border-color: #5b9bd5; }
 QCheckBox::indicator:disabled { background-color: #f1f5f9; }
 
 /* Drop area */
@@ -158,6 +161,20 @@ QFrame#drop_area {
 QFrame#linha_arquivo {
     background-color: #e8edf2;
     border-radius: 6px;
+}
+
+/* Caixa de dica (popup de boas-vindas) — mesmo azul suave usado no
+   destaque do dropdown, reforça a identidade do app; texto com mais
+   contraste que o cinza genérico das linhas de arquivo */
+QFrame#caixa_dica {
+    background-color: #eaf1ff;
+    border: 1px solid #cfe0fb;
+    border-radius: 6px;
+}
+QLabel#label_dica {
+    color: #3a5f8a;
+    font-size: 8pt;
+    background-color: transparent;
 }
 
 /* Separador horizontal */
@@ -201,6 +218,24 @@ QPushButton#btn_como_usar {
 }
 QPushButton#btn_como_usar:hover   { background-color: #4a87c2; }
 QPushButton#btn_como_usar:pressed { background-color: #3a72a8; }
+
+/* ── Botões "pasta de destino", "transcrever", "importar" e "instalar"
+   — mesma tonalidade do botão "?" e dos ícones de engrenagem, em vez
+   do azul primário mais saturado ─────────────────────────────────── */
+QPushButton#btn_transcrever,
+QPushButton#btn_pasta,
+QPushButton#btn_importar,
+QPushButton#btn_instalar {
+    background-color: #5b9bd5;
+}
+QPushButton#btn_transcrever:hover,
+QPushButton#btn_pasta:hover,
+QPushButton#btn_importar:hover,
+QPushButton#btn_instalar:hover   { background-color: #4a87c2; }
+QPushButton#btn_transcrever:pressed,
+QPushButton#btn_pasta:pressed,
+QPushButton#btn_importar:pressed,
+QPushButton#btn_instalar:pressed { background-color: #3a72a8; }
 
 /* ── Boas-vindas: nome, hint e labels de seção ── */
 QLabel#label_app_nome {
@@ -276,6 +311,28 @@ QLabel#label_painel_percentual {
 }
 
 QLabel#label_painel_tempo {
+    color: #94a3b8;
+    font-size: 11px;
+    background-color: transparent;
+}
+
+/* ── Navegador discreto '‹ N/T ›' entre transcrições da fila ────────── */
+QPushButton#btn_navegador_fila {
+    background-color: transparent;
+    color: #94a3b8;
+    border: none;
+    font-size: 13px;
+    font-weight: bold;
+    padding: 0px;
+}
+QPushButton#btn_navegador_fila:hover:enabled {
+    color: #3b82f6;
+}
+QPushButton#btn_navegador_fila:disabled {
+    color: #cbd5e1;
+}
+
+QLabel#label_navegador_fila {
     color: #94a3b8;
     font-size: 11px;
     background-color: transparent;
