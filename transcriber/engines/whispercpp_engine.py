@@ -20,36 +20,15 @@ from exceptions.engine_errors import (
     TranscricaoCancelada, BinarioNaoEncontrado, ModeloNaoEncontrado
 )
 
-# Timeout para as threads de leitura de stdout/stderr do whisper-cli.
-# No Windows, o pipe às vezes não fecha mesmo após terminate()/kill() do
-# processo (handle herdado por um processo neto que sobrevive) — sem esse
-# timeout, .join() trava para sempre, o que por sua vez trava indefinidamente
-# TranscricaoWorker.run() e, com isso, o self._worker.wait() do closeEvent
-# da janela principal — a app inteira congela ao fechar (X não funciona).
+# timeout de leitura do stdout/stderr do whisper-cli — no Windows o pipe às vezes
+# não fecha após kill(), e sem timeout o .join() trava a app inteira ao fechar
 _TIMEOUT_LEITURA_PIPE = 3.0
-
-# ---------------------------------------------------------------------------
-# Constantes
-# ---------------------------------------------------------------------------
 
 VERSAO_BINARIO = "1.9.0"
 
-# ---------------------------------------------------------------------------
-# Resolução do binário
-#
-# Binário único (whisper-cli + todas as .dll juntos em WHISPER_BIN).
-# A escolha de backend não é mais "qual exe rodar", e sim "qual flag
-# passar": o próprio whisper-cli (compilado com GGML_BACKEND_DL=ON +
-# GGML_CPU_ALL_VARIANTS=ON) carrega as .dll de backend disponíveis na
-# sua própria pasta e escolhe a melhor automaticamente — usa Vulkan se
-# a .dll estiver presente e não for pedido -ng, senão cai na melhor
-# variante de CPU. Ver _montar_comando() para a flag -ng.
-# ---------------------------------------------------------------------------
-
-
-# ---------------------------------------------------------------------------
-# Engine
-# ---------------------------------------------------------------------------
+# resolução do binário: um único whisper-cli carrega as .dll de backend
+# disponíveis na sua pasta (compilado com GGML_BACKEND_DL + GGML_CPU_ALL_VARIANTS)
+# e escolhe Vulkan ou a melhor CPU automaticamente — ver _montar_comando() (-ng)
 
 class WhisperCppEngine(BaseEngine):
 
@@ -98,18 +77,13 @@ class WhisperCppEngine(BaseEngine):
 
         self._processo = subprocess.Popen(comando, **kwargs)
 
-        # Os segmentos reconhecidos ("[hh:mm:ss --> hh:mm:ss]  texto") são
-        # impressos pelo whisper-cli no STDOUT (printf) — só logs de
-        # diagnóstico (carregamento de modelo, system_info etc.) vão pro
-        # stderr (fprintf(stderr, ...)). Ver whisper.cpp/examples/cli/cli.cpp.
+        # segmentos ("[hh:mm:ss --> hh:mm:ss] texto") vêm no STDOUT; stderr é só log de diagnóstico
         _RE_TIMESTAMP = re.compile(
             r"\[(\d{2}):(\d{2}):(\d{2})\.\d+ --> (\d{2}):(\d{2}):(\d{2})\.\d+\]\s*(.*)"
         )
 
-        # stdout em thread separada, lido linha a linha (para progresso em
-        # tempo real) — não bloquear o cancelamento. No Windows, a leitura
-        # pode travar mesmo após terminate()/kill() enquanto o pipe não for
-        # fechado pelo processo filho; por isso o timeout no .join() abaixo.
+        # thread separada pra ler linha a linha sem travar o cancelamento; timeout no
+        # .join() porque no Windows a leitura pode travar mesmo após terminate()/kill()
         stdout_lines: list[str] = []
 
         def _ler_stdout():
@@ -152,9 +126,8 @@ class WhisperCppEngine(BaseEngine):
             raise TranscricaoCancelada("Transcrição cancelada pelo usuário.")
 
         if returncode != 0:
-            # Vulkan foi pedido e falhou (driver ausente, init da GPU
-            # quebrou etc.) → reexecuta o mesmo binário forçando -ng
-            # (CPU only), silenciosamente.
+            # Vulkan foi pedido e falhou (driver ausente, init de GPU quebrou) —
+            # reexecuta o mesmo binário forçando -ng (CPU only), silenciosamente
             if usar_gpu and not self._cancelado:
                 log_info(
                     "whisper-cli falhou com GPU habilitada "
@@ -189,7 +162,7 @@ class WhisperCppEngine(BaseEngine):
 
         self._processo = subprocess.Popen(comando, **kwargs)
 
-        # Mesma observação de transcribe(): segmentos vêm no STDOUT.
+        # segmentos vêm no STDOUT, mesma lógica de transcribe()
         _RE_TIMESTAMP = re.compile(
             r"\[(\d{2}):(\d{2}):(\d{2})\.\d+ --> (\d{2}):(\d{2}):(\d{2})\.\d+\]\s*(.*)"
         )
@@ -331,10 +304,8 @@ class WhisperCppEngine(BaseEngine):
             "-of", str(output_path),
         ]
 
-        # Binário único carrega todas as .dll de backend disponíveis na
-        # própria pasta (Vulkan incluída) e usa GPU por padrão quando há
-        # uma. -ng força CPU mesmo com a ggml-vulkan.dll presente —
-        # é assim que o checkbox "usar_gpu" da UI é aplicado aqui.
+        # binário único carrega as .dll de backend disponíveis e usa GPU por padrão;
+        # -ng força CPU mesmo com Vulkan presente — é o checkbox "usar_gpu" da UI
         if not usar_gpu:
             cmd.append("-ng")
         if formato_saida in ("txt", "ambos", "txt_vtt", "todos"):
@@ -358,26 +329,16 @@ class WhisperCppEngine(BaseEngine):
             if modelo_silero:
                 cmd += ["-vm", str(modelo_silero)]
             else:
-                log_info(
-                    "VAD solicitado, mas nenhum modelo Silero (*silero*.bin) "
-                    "foi encontrado em MODELS_DIR — seguindo sem VAD."
-                )
+                log_info("VAD solicitado, mas nenhum modelo Silero encontrado — seguindo sem VAD.")
 
-        # -tp/-bs só são passados quando diferentes do padrão do próprio
-        # whisper-cli (0.0 / 5) — evita poluir o comando à toa.
+        # -tp/-bs só vão no comando se diferentes do padrão do whisper-cli
         if temperature != 0.0:
             cmd += ["-tp", str(temperature)]
         if beam_size != 5:
-            # O whisper.cpp tem um teto rígido de decoders simultâneos (8) —
-            # pedir mais que isso derruba o processo com "too many decoders
-            # requested". Trava aqui como segurança, mesmo que a UI já limite
-            # as opções, pra nunca mais quebrar por causa disso.
+            # whisper.cpp trava com >8 decoders simultâneos; limita aqui como segurança
             beam_size_efetivo = min(beam_size, 8) if beam_size > 0 else beam_size
             if beam_size_efetivo != beam_size:
-                log_info(
-                    f"beam_size {beam_size} excede o máximo de decoders "
-                    f"do whisper.cpp (8) — usando {beam_size_efetivo}."
-                )
+                log_info(f"beam_size {beam_size} excede o máximo do whisper.cpp (8) — usando {beam_size_efetivo}.")
             cmd += ["-bs", str(beam_size_efetivo)]
 
         return cmd
