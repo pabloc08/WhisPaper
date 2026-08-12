@@ -47,11 +47,11 @@ QPushButton#btn_config_geral:disabled {
     color: #3A3B42;
     border: 0.5px solid #2A2B30;
 }
-/* Botão cancelar */
+/* Botão cancelar — texto no mesmo tom do wave congelado (erro/cancelamento) */
 QPushButton#btn_cancelar {
     background-color: #3D2525;
-    color: #FF7A7A;
-    border: none;
+    color: #FF6B6B;
+    border: 1px solid #7A4A4A;
 }
 QPushButton#btn_cancelar:hover   { background-color: #4D2E2E; }
 QPushButton#btn_cancelar:pressed { background-color: #2D1A1A; }
@@ -79,15 +79,17 @@ QPushButton#btn_link {
 }
 QPushButton#btn_link:hover { color: #7AABFF; }
 
-/* Botão remover (vermelho) */
+/* Botão remover (vermelho) — mesmo tom do botão cancelar */
 QPushButton#btn_remover {
     background-color: #3D2525;
-    color: #FF7A7A;
+    color: #FF6B6B;
+    border: 1px solid #7A4A4A;
     padding: 4px 10px;
     font-size: 9pt;
 }
 QPushButton#btn_remover:hover   { background-color: #4D2E2E; }
 QPushButton#btn_remover:pressed { background-color: #2D1A1A; }
+QPushButton#btn_remover:disabled { background-color: #2A2020; color: #7A4A4A; }
 
 /* ComboBox */
 QComboBox {
@@ -166,6 +168,19 @@ QFrame#linha_arquivo {
     border-radius: 6px;
 }
 
+/* Caixa de dica (popup de boas-vindas) — mesmo azul suave do botão
+   "?" e do destaque do dropdown, reforça a identidade do app */
+QFrame#caixa_dica {
+    background-color: #2C3A5E;
+    border: 1px solid #4a7ab5;
+    border-radius: 6px;
+}
+QLabel#label_dica {
+    color: #93b8e8;
+    font-size: 8pt;
+    background-color: transparent;
+}
+
 /* Separador horizontal */
 QFrame[frameShape="4"] { color: #3A3B42; max-height: 1px; }
 
@@ -207,6 +222,24 @@ QPushButton#btn_como_usar {
 }
 QPushButton#btn_como_usar:hover   { background-color: #364873; }
 QPushButton#btn_como_usar:pressed { background-color: #1E2B47; }
+
+/* ── Botões "pasta de destino", "transcrever", "importar" e "instalar"
+   — mesma tonalidade do botão "?" e dos ícones de engrenagem ───────── */
+QPushButton#btn_transcrever,
+QPushButton#btn_pasta,
+QPushButton#btn_importar,
+QPushButton#btn_instalar {
+    color: #93b8e8;
+    border: 1px solid #4a7ab5;
+}
+QPushButton#btn_transcrever:hover,
+QPushButton#btn_pasta:hover,
+QPushButton#btn_importar:hover,
+QPushButton#btn_instalar:hover   { background-color: #364873; }
+QPushButton#btn_transcrever:pressed,
+QPushButton#btn_pasta:pressed,
+QPushButton#btn_importar:pressed,
+QPushButton#btn_instalar:pressed { background-color: #1E2B47; }
 
 /* ── Boas-vindas: nome, hint e labels de seção ── */
 QLabel#label_app_nome {
@@ -282,6 +315,28 @@ QLabel#label_painel_percentual {
 }
 
 QLabel#label_painel_tempo {
+    color: #64748b;
+    font-size: 11px;
+    background-color: transparent;
+}
+
+/* ── Navegador discreto '‹ N/T ›' entre transcrições da fila ────────── */
+QPushButton#btn_navegador_fila {
+    background-color: transparent;
+    color: #64748b;
+    border: none;
+    font-size: 13px;
+    font-weight: bold;
+    padding: 0px;
+}
+QPushButton#btn_navegador_fila:hover:enabled {
+    color: #3b82f6;
+}
+QPushButton#btn_navegador_fila:disabled {
+    color: #3A3B42;
+}
+
+QLabel#label_navegador_fila {
     color: #64748b;
     font-size: 11px;
     background-color: transparent;
