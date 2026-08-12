@@ -13,8 +13,7 @@ from typing import Callable, Optional
 
 import httpx
 
-# User-Agent genérico de navegador — máxima compatibilidade com CDNs,
-# Hugging Face, gyan.dev, etc. Evita bloqueio por "bot detection".
+# UA de navegador genérico — evita bot detection em CDNs/Hugging Face/gyan.dev
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
