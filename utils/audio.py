@@ -14,8 +14,7 @@ def tocar_som(nome: str) -> None:
         return
     try:
         efeito = _cache.get(nome)
-        # Recria se ainda não existe ou se o status não é Loading/Ready
-        # (Status 0 = Null, 1 = Loading, 2 = Ready, 3 = Error)
+        # recria se não existe ou status não é Loading/Ready (0=Null, 1=Loading, 2=Ready, 3=Error)
         if efeito is None or efeito.status() == QSoundEffect.Status.Error \
                 or efeito.status() == QSoundEffect.Status.Null:
             efeito = QSoundEffect()
