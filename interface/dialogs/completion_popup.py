@@ -5,10 +5,10 @@ from pathlib import Path
 
 from PySide6.QtWidgets import (
     QDialog, QFrame, QLabel, QPushButton,
-    QVBoxLayout, QHBoxLayout, QMessageBox,
+    QVBoxLayout, QHBoxLayout, QMessageBox, QScrollArea,
 )
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QFont, QPixmap
 
 from utils.platform import abrir_pasta
 from settings.i18n import t
@@ -30,7 +30,7 @@ def _cores_tema(tema: str = "light") -> dict:
             "btn_sec_pressed": "#1e293b",
         }
     return {
-        "bg":              "#f5f5f5",
+        "bg":              "#fafafa",
         "border":          "#cbd5e1",
         "titulo":          "#0f172a",
         "corpo":           "#475569",
@@ -44,12 +44,14 @@ def _cores_tema(tema: str = "light") -> dict:
 
 
 class PopupConclusao(QDialog):
-    """
-    Diálogo customizado de conclusão de transcrição.
-    Modal e bloqueante — usa exec().
-    """
+    """Diálogo customizado de conclusão de transcrição. Modal, bloqueante (exec())."""
 
-    def __init__(self, parent, corpo: str, pasta_destino: str = "", on_ok: callable = None):
+    # acima disso, a lista ganha scroll em vez de esticar o popup (com 29 arquivos virava quase a tela)
+    MAX_ITENS_SEM_SCROLL = 6
+    ALTURA_LINHA_ESTIMADA = 20   # px, pra calcular a altura do scroll (~6 linhas)
+
+    def __init__(self, parent, resumo: str, nomes: list = None,
+                 pasta_destino: str = "", on_ok: callable = None):
         super().__init__(parent)
         self._pasta_destino = pasta_destino
         self._on_ok = on_ok
@@ -61,12 +63,12 @@ class PopupConclusao(QDialog):
         self.setModal(True)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         tema = getattr(parent, "configs", {}).get("tema", "light")
-        self._build(corpo, tema)
+        self._build(resumo, nomes or [], tema)
         self.adjustSize()
         self._centralizar(parent)
         self.exec()
 
-    def _build(self, corpo: str, tema: str = "light"):
+    def _build(self, resumo: str, nomes: list, tema: str = "light"):
         c = _cores_tema(tema)
 
         outer = QVBoxLayout(self)
@@ -89,10 +91,15 @@ class PopupConclusao(QDialog):
         row_titulo = QHBoxLayout()
         row_titulo.setSpacing(10)
 
-        icone = QLabel("✅")
-        f = QFont()
-        f.setPointSize(16)
-        icone.setFont(f)
+        icone = QLabel()
+        _pm_sucesso = QPixmap(":/icons/success.png")
+        if not _pm_sucesso.isNull():
+            _pm_sucesso = _pm_sucesso.scaled(
+                22, 22,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+            icone.setPixmap(_pm_sucesso)
         row_titulo.addWidget(icone)
 
         titulo = QLabel(t("popup.titulo"))
@@ -109,14 +116,33 @@ class PopupConclusao(QDialog):
         sep.setStyleSheet(f"color: {c['sep']};")
         shadow_layout.addWidget(sep)
 
-        lbl_corpo = QLabel(corpo)
-        f_corpo = QFont()
-        f_corpo.setPointSize(10)
-        lbl_corpo.setFont(f_corpo)
-        lbl_corpo.setStyleSheet(f"color: {c['corpo']};")
-        lbl_corpo.setWordWrap(True)
-        lbl_corpo.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        shadow_layout.addWidget(lbl_corpo)
+        # resumo fica sempre visível fora do scroll — só a lista de nomes rola
+        lbl_resumo = QLabel(resumo)
+        f_resumo = QFont()
+        f_resumo.setPointSize(10)
+        lbl_resumo.setFont(f_resumo)
+        lbl_resumo.setStyleSheet(f"color: {c['corpo']};")
+        lbl_resumo.setWordWrap(True)
+        lbl_resumo.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        shadow_layout.addWidget(lbl_resumo)
+
+        if nomes:
+            texto_nomes = "\n".join(f"• {nome}" for nome in nomes)
+            lbl_nomes = QLabel(texto_nomes)
+            lbl_nomes.setFont(f_resumo)
+            lbl_nomes.setStyleSheet(f"color: {c['corpo']};")
+            lbl_nomes.setWordWrap(True)
+            lbl_nomes.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+
+            if len(nomes) > self.MAX_ITENS_SEM_SCROLL:
+                scroll = QScrollArea()
+                scroll.setWidgetResizable(True)
+                scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+                scroll.setFixedHeight(self.MAX_ITENS_SEM_SCROLL * self.ALTURA_LINHA_ESTIMADA)
+                scroll.setWidget(lbl_nomes)
+                shadow_layout.addWidget(scroll)
+            else:
+                shadow_layout.addWidget(lbl_nomes)
 
         row_btns = QHBoxLayout()
         row_btns.setSpacing(8)
