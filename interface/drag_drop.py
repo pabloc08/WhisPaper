@@ -1,15 +1,10 @@
 # interface/drag_drop.py
-# Implementada como um filtro de eventos na QApplication inteira, e não como
-# dragEnterEvent/dropEvent normais do QMainWindow — no Windows, o QSS força
-# criação de janelas nativas nos widgets filhos, que capturam os eventos de
-# DnD antes deles chegarem ao QMainWindow. O filtro na QApplication intercepta
-# tudo antes de qualquer widget filho processar, garantindo que o drop
-# funcione independente de qual filho está sob o cursor.
+# Filtro de eventos na QApplication inteira em vez de dragEnterEvent/dropEvent do
+# QMainWindow — no Windows o QSS cria janelas nativas nos filhos, que capturam o
+# DnD antes de chegar ao QMainWindow. O filtro na app intercepta tudo antes.
 #
-# DragDropMixin espera que a classe que o usa (App, em gui.py) forneça:
-#   self.drop_area       — widget com .highlight(bool, tema)
-#   self.configs         — dict de configuração (usa "tema")
-#   self.adicionar_arquivo(caminho) — método que processa cada arquivo solto
+# DragDropMixin espera que a classe (App, em gui.py) tenha:
+#   self.drop_area, self.configs, self.adicionar_arquivo(caminho)
 
 import os
 
