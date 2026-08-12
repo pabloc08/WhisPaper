@@ -52,11 +52,7 @@ def log_info(mensagem: str) -> None:
 
 
 def limpar_logs_antigos(dias: int = 7) -> None:
-    """
-    Remove arquivos de log com mais de `dias` dias.
-    Chamada uma vez na inicialização do app — silenciosa em caso de falha.
-    Padrões cobertos: erro_*, info_*, subprocess_*, erro_FATAL_*.
-    """
+    """Remove logs (erro_*, info_*, subprocess_*) com mais de `dias` dias."""
     try:
         from datetime import timedelta
         limite = datetime.now() - timedelta(days=dias)
