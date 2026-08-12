@@ -25,10 +25,7 @@ class EngineManager:
 
     @staticmethod
     def get(engine_id: str):
-        """
-        Instancia e retorna a engine solicitada.
-        Levanta ValueError se a engine não estiver registrada.
-        """
+        """Instancia a engine solicitada; ValueError se não registrada."""
         entrada = ENGINES.get(engine_id)
         if entrada is None:
             disponiveis = ", ".join(ENGINES.keys())
