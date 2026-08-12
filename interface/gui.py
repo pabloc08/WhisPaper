@@ -9,14 +9,14 @@ from PySide6.QtWidgets import (
     QScrollArea, QVBoxLayout, QHBoxLayout,
     QFrame,
 )
-from PySide6.QtCore import Qt, QTimer, QSize, Signal, QByteArray
-from PySide6.QtGui import QIcon, QPixmap, QFont
+from PySide6.QtCore import Qt, QTimer, QSize, Signal, QByteArray, QRegularExpression
+from PySide6.QtGui import QIcon, QPixmap, QFont, QRegularExpressionValidator
 
 from utils.audio import tocar_som, limpar_cache_audio
 from utils.logger import log_info
 from converter.converter import obter_duracao
 from utils.filenames import _truncar_nome
-from interface.progress_bar import BarraAnimada
+from interface.waveform_spinner import WaveformSpinner
 from interface.combo_box import ComboBoxPosicaoFixa
 from interface.status_icon import criar_label_icone_status as _criar_label_icone_status
 from interface.file_type_icons import criar_label_tipo_arquivo as _criar_label_tipo_arquivo
@@ -32,55 +32,31 @@ from settings.paths import (
     criar_diretorios,
 )
 
-# Registra os recursos Qt embutidos (ícones, imgs, sons, fontes) — o import
-# em si é o que importa (efeito colateral de registro), por isso o noqa.
+# registra os recursos Qt embutidos (ícones, sons, fontes)
 from interface.assets import assets_rc  # noqa: F401
 
-# ---------------------------------------------------------------------------
-# Popup de Conclusão
-# ---------------------------------------------------------------------------
-
+# popup de conclusão
 from interface.dialogs.completion_popup          import PopupConclusao
-
-# ---------------------------------------------------------------------------
-# Inicialização
-# ---------------------------------------------------------------------------
 
 criar_diretorios()
 
-
-# ---------------------------------------------------------------------------
-# Ícone de engrenagem
-# ---------------------------------------------------------------------------
 
 def _icone_engrenagem() -> QIcon:
     icon = QIcon(":/icons/settings.png")
     return icon if not icon.isNull() else QIcon()
 
 
-# ---------------------------------------------------------------------------
-# QSS / tema — implementação em utils/theme.py (sem dependência Qt no import)
-# Os aliases com underscore preservam compatibilidade com main.py e dialogs
-# que ainda importam daqui.
-# ---------------------------------------------------------------------------
-
+# tema/QSS; aliases mantidos por compatibilidade com main.py e dialogs
 from utils.theme import carregar_qss as _carregar_qss          # noqa: E402
 from utils.theme import tema_inicial as _tema_inicial          # noqa: E402
 
 
-# ---------------------------------------------------------------------------
-# Worker de transcrição
-# ---------------------------------------------------------------------------
-
+# worker de transcrição
 from workers.transcription_worker import TranscricaoWorker
 from transcriber.request          import TranscriptionRequest
 from transcriber.managers.engine_manager import EngineManager
 from transcriber.managers.model_manager  import ModelManager
 
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
 
 def _duracao_str(elapsed: float) -> str:
     h, rem = divmod(int(elapsed), 3600)
@@ -92,34 +68,19 @@ def _duracao_str(elapsed: float) -> str:
     return " ".join(partes)
 
 
-# ---------------------------------------------------------------------------
-# Janelas de diálogo
-# ---------------------------------------------------------------------------
-
+# janelas de diálogo
 from interface.dialogs.engine_config_dialog       import JanelaConfigEngine
 from interface.dialogs.general_config_dialog      import JanelaConfigGeral
 from interface.dialogs.model_manager_dialog       import JanelaGerenciadorModelos
 
 
-# ---------------------------------------------------------------------------
-# Drop Area — apenas visual; DnD é tratado no QMainWindow
-# ---------------------------------------------------------------------------
-
 class DropArea(QFrame):
-    """
-    Widget visual da zona de drop. Não lida com DnD diretamente —
-    o QMainWindow (App) instala setAcceptDrops e implementa os eventos,
-    garantindo que o drop funcione independentemente de qual filho está sob o cursor.
-    """
+    """Zona de drop visual — o DnD real é tratado pelo QMainWindow."""
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("drop_area")
         self.setMinimumHeight(150)
-        # Impede que a área cresça indefinidamente quando a lista de arquivos
-        # (QScrollArea, com size policy Expanding) está visível — sem este
-        # limite, o QFrame "herda" o comportamento expansivo do filho e passa
-        # a disputar espaço extra do redimensionamento da janela, empurrando/
-        # sobrepondo visualmente os controles abaixo (ex.: botão de pasta).
+        # limita altura pra não disputar espaço com a lista de arquivos expandida
         self.setMaximumHeight(280)
 
     def highlight(self, on: bool, tema: str = "light"):
@@ -151,10 +112,6 @@ class DropArea(QFrame):
             )
 
 
-# ---------------------------------------------------------------------------
-# App principal
-# ---------------------------------------------------------------------------
-
 class App(DragDropMixin, TrayMixin, QMainWindow):
     _duracao_pronta = Signal(str, str)  # (caminho, duracao)
 
@@ -173,9 +130,7 @@ class App(DragDropMixin, TrayMixin, QMainWindow):
         self._worker              = None
         self._fila_idx            = 0   # atualizado via signal progresso_fila do worker
         self._fila_total          = 0
-        # Timer cancelável para reset da barra — evita que um reset agendado
-        # de uma transcrição anterior dispare no meio de uma nova.
-        self._timer_reset_barra   = None
+        self._timer_reset_barra   = None  # cancelável, evita reset de transcrição antiga disparar numa nova
 
         self.engine_id            = self.configs.get("engine", "whispercpp")
         self.model_id             = self.configs.get("model_id", "large-v3-turbo")
@@ -196,17 +151,11 @@ class App(DragDropMixin, TrayMixin, QMainWindow):
         self._seta_painel      = SetaExpansao(self)
         self._seta_painel.hide()   # filho de verdade herda visibilidade do pai por padrão
         self._painel_progresso = None
+        self._painel_estava_visivel_antes_de_esconder = False  # p/ reabrir o painel ao restaurar a janela
         self._seta_painel.clicked.connect(self._alternar_painel_progresso)
-        # O mínimo é calculado a partir do próprio layout (e não um valor
-        # fixo "chutado"). Um valor fixo menor do que o real acabava
-        # permitindo encolher a janela além do que os widgets suportam,
-        # o que fazia a área de arraste sobrepor visualmente os controles
-        # abaixo dela (ex.: botão de pasta de destino) ao redimensionar
-        # a janela para baixo.
-        self.setMinimumSize(self.centralWidget().minimumSizeHint())
+        self.setMinimumSize(self.centralWidget().minimumSizeHint())  # calculado do layout, não um valor fixo
         self._duracao_pronta.connect(self._aplicar_duracao)
-        # Instala filtro de eventos na aplicação inteira — única forma confiável
-        # de capturar DnD no Windows quando há widgets filhos com QSS
+        # única forma confiável de capturar DnD no Windows com widgets filhos usando QSS
         QApplication.instance().installEventFilter(self)
 
         # Restaura posicao/tamanho da sessao anterior
@@ -243,9 +192,7 @@ class App(DragDropMixin, TrayMixin, QMainWindow):
         )
 
     def atualizar_estilo_rodape(self):
-        """Reaplica a cor dos botões do rodapé da lista — chamar após troca
-        de tema em tempo real (sem isso, eles ficam presos à cor do tema
-        com que a janela foi aberta)."""
+        """Reaplica a cor dos botões do rodapé após troca de tema em tempo real."""
         estilo = self._estilo_rodape_lista()
         self.btn_adicionar_lista.setStyleSheet(estilo)
         self.btn_limpar_lista.setStyleSheet(estilo)
@@ -330,12 +277,7 @@ class App(DragDropMixin, TrayMixin, QMainWindow):
         rodape_layout.setContentsMargins(12, 2, 12, 4)
         rodape_layout.addStretch()
 
-        # Mesmo padrão de bug do estado de erro: cores fixas no código
-        # sobrescrevem o QSS do tema. No dark, o cinza claro usado para
-        # "disabled" (#cbd5e1) tinha alto contraste com o fundo escuro e
-        # ficava parecido demais com a cor normal do texto — dando a
-        # impressão de que os botões ainda eram clicáveis.
-        _estilo_rodape = self._estilo_rodape_lista()
+        _estilo_rodape = self._estilo_rodape_lista()  # cor fixa no dark deixava "disabled" parecido com clicável
 
         self.btn_adicionar_lista = QPushButton(t("fila.adicionar"))
         self.btn_adicionar_lista.setObjectName("btn_link")
@@ -359,6 +301,7 @@ class App(DragDropMixin, TrayMixin, QMainWindow):
         row_saida = QHBoxLayout()
         row_saida.setSpacing(8)
         self.btn_pasta = QPushButton(t("pasta.label"))
+        self.btn_pasta.setObjectName("btn_pasta")
         self.btn_pasta.setFixedWidth(150)
         self.btn_pasta.clicked.connect(self.selecionar_pasta)
         row_saida.addWidget(self.btn_pasta)
@@ -376,19 +319,26 @@ class App(DragDropMixin, TrayMixin, QMainWindow):
         self.checkbox_tempo.toggled.connect(self._toggle_tempo)
         row_tempo.addWidget(self.checkbox_tempo)
 
+        # aceita H, MM:SS ou HH:MM:SS enquanto digita; "fim > início" é validado no trimmer
+        validador_tempo = QRegularExpressionValidator(
+            QRegularExpression(r"^([0-9]{1,2})?(:([0-5]?[0-9])?)?(:([0-5]?[0-9])?)?$")
+        )
+
         self.label_inicio = QLabel(t("tempo.inicio") + ":")
         row_tempo.addWidget(self.label_inicio)
         self.entry_inicio = QLineEdit()
-        self.entry_inicio.setPlaceholderText("00:00")
-        self.entry_inicio.setFixedWidth(80)
+        self.entry_inicio.setPlaceholderText("h:mm:ss")
+        self.entry_inicio.setValidator(validador_tempo)
+        self.entry_inicio.setFixedWidth(90)
         self.entry_inicio.setEnabled(False)
         row_tempo.addWidget(self.entry_inicio)
 
         self.label_fim = QLabel(t("tempo.fim") + ":")
         row_tempo.addWidget(self.label_fim)
         self.entry_fim = QLineEdit()
-        self.entry_fim.setPlaceholderText("00:00")
-        self.entry_fim.setFixedWidth(80)
+        self.entry_fim.setPlaceholderText("h:mm:ss")
+        self.entry_fim.setValidator(validador_tempo)
+        self.entry_fim.setFixedWidth(90)
         self.entry_fim.setEnabled(False)
         row_tempo.addWidget(self.entry_fim)
         row_tempo.addStretch()
@@ -452,6 +402,7 @@ class App(DragDropMixin, TrayMixin, QMainWindow):
         row_botoes = QHBoxLayout()
         row_botoes.setSpacing(12)
         self.btn_iniciar = QPushButton(t("btn.transcrever"))
+        self.btn_iniciar.setObjectName("btn_transcrever")
         self.btn_iniciar.clicked.connect(self.executar_transcricao)
         row_botoes.addWidget(self.btn_iniciar)
 
@@ -479,38 +430,24 @@ class App(DragDropMixin, TrayMixin, QMainWindow):
         root.addStretch()
 
     def _construir_progresso(self, root):
-        # ── Progresso ────────────────────────────────────────────────
-        self.barra_animada = BarraAnimada()
-        root.addWidget(self.barra_animada)
+        # waveform em cima, status embaixo — waveform só mostra atividade, não progresso real
+        col_status = QVBoxLayout()
+        col_status.setSpacing(4)
+        col_status.setContentsMargins(0, 0, 0, 0)
+        col_status.setAlignment(Qt.AlignmentFlag.AlignHCenter)
 
-        # Row: [spinner] [status text]  — o spinner gira num label próprio
-        # para não piscar o texto de progresso a cada frame.
-        row_status = QHBoxLayout()
-        row_status.setSpacing(4)
-        row_status.setContentsMargins(0, 0, 0, 0)
-
-        self.label_spinner = QLabel("")
-        self.label_spinner.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.label_spinner.setFixedWidth(20)
-        self.label_spinner.setObjectName("label_status")
-        row_status.addWidget(self.label_spinner)
+        self.waveform_spinner = WaveformSpinner()
+        col_status.addWidget(self.waveform_spinner, alignment=Qt.AlignmentFlag.AlignHCenter)
 
         self.label_status = QLabel(t("status.aguardando"))
         self.label_status.setObjectName("label_status")
         self.label_status.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        row_status.addWidget(self.label_status, 1)
+        col_status.addWidget(self.label_status)
 
         # widget-contêiner centralizado
         _status_container = QWidget()
-        _status_container.setLayout(row_status)
+        _status_container.setLayout(col_status)
         root.addWidget(_status_container, alignment=Qt.AlignmentFlag.AlignCenter)
-
-        # Spinner — anima apenas o label_spinner, não toca o label_status
-        self._spinner_frames = ["⠋","⠙","⠹","⠸","⠼","⠴","⠦","⠧","⠇","⠏"]
-        self._spinner_idx    = 0
-        self._spinner_timer  = QTimer(self)
-        self._spinner_timer.setInterval(105)
-        self._spinner_timer.timeout.connect(self._animar_spinner)
 
     # ------------------------------------------------------------------
     # Arquivo
@@ -625,10 +562,7 @@ class App(DragDropMixin, TrayMixin, QMainWindow):
             _f = QFont(); _f.setPointSize(10); nome_lbl.setFont(_f)
             row.addWidget(nome_lbl, 1)
 
-            # Status — antes da duração, alinhado à direita
-            # PNG em vez de glifo de texto (✓ / !): a Noto Sans embutida não
-            # contém esses glifos, e no Linux o fallback via fontconfig nem
-            # sempre substitui por algo visível.
+            # PNG em vez de glifo — a fonte embutida não tem ✓/!, e o fallback do Linux é inconsistente
             if entrada.get("status") == "concluido":
                 st = _criar_label_icone_status(":/icons/success.png")
                 if st:
@@ -763,40 +697,27 @@ class App(DragDropMixin, TrayMixin, QMainWindow):
         self.drop_area.setStyleSheet("")
         self.drop_area.highlight(False)
 
-        # Cancela reset pendente de uma transcrição anterior e limpa os ícones
-        # residuais (✓/!) que ela deixou na fila — sem isso, clicar "transcrever"
-        # de novo antes dos 5s do reset automático deixava esses ícones visíveis
-        # misturados com os arquivos da nova sessão.
+        # cancela reset pendente e limpa ícones residuais (✓/!) da sessão anterior
         if self._timer_reset_barra is not None:
             self._timer_reset_barra.stop()
         for e in self.fila_arquivos:
             e.pop("status", None)
 
         self._desabilitar_controles()
-        self.barra_animada.reset()
-        # Delay proposital: sem ele, a barra começa a "surgir" no exato
-        # instante do clique, quase junto com o resto da rajada de trabalho
-        # síncrono deste método. Esperar um pouco antes de iniciar dá uma
-        # pausa perceptível antes dela aparecer.
-        QTimer.singleShot(
-            300,
-            lambda: self.barra_animada.start(self.configs.get("tema", "light")),
-        )
         self.transcrevendo   = True
         self._seta_painel.reposicionar(self)
         self._seta_painel.raise_()
-        # Pequeno delay proposital: sem ele, o fade-in começa no meio da
-        # rajada de trabalho síncrono deste método (desabilitar controles,
-        # renderizar lista, iniciar o worker) e a transição soma à travadinha
-        # em vez de suavizá-la.
+        # prepara o painel síncrono, antes do worker, pra não perder o 1º sinal de progresso
+        self._preparar_painel_progresso()
+        # delay proposital pro fade-in não somar com a travadinha do trabalho síncrono acima
         QTimer.singleShot(150, self._seta_painel.aparecer_animado)
+        QTimer.singleShot(150, self._abrir_painel_progresso)
         self._renderizar_lista()   # bloqueia os ✕ imediatamente
         self._fila_idx       = 1
         self._fila_total     = len(self.fila_arquivos)
-        self._spinner_idx    = 0
-        self.label_spinner.setText(self._spinner_frames[0])
+        self.waveform_spinner.set_tema(self.configs.get("tema", "light"))
+        self.waveform_spinner.start()
         self.label_status.setText(t("status.transcrevendo_spinner"))
-        self._spinner_timer.start()
 
         if self.som_ativado:
             tocar_som("som_transcricao")
@@ -838,7 +759,7 @@ class App(DragDropMixin, TrayMixin, QMainWindow):
             return
         self.atualizar_status(t("status.cancelando"))
         self.btn_cancelar.setEnabled(False)
-        self.barra_animada.cancel()
+        self.waveform_spinner.congelar_erro()
         if self._worker:
             self._worker.cancelar()
         if self.som_ativado:
@@ -849,7 +770,7 @@ class App(DragDropMixin, TrayMixin, QMainWindow):
         self._fila_total = total
         if self._painel_progresso is not None and 1 <= idx <= len(self.fila_arquivos):
             nome = self.fila_arquivos[idx - 1].get("nome", "")
-            self._painel_progresso.reset(nome)
+            self._painel_progresso.iniciar_arquivo(idx - 1, nome)
 
     def _on_progresso_transcricao(self, segundos: int, percentual: float, texto: str):
         if self._painel_progresso is not None:
@@ -868,48 +789,36 @@ class App(DragDropMixin, TrayMixin, QMainWindow):
         self._renderizar_lista()
 
     def _on_finalizado(self, concluidos: int, total: int, elapsed: float):
-        self._spinner_timer.stop()
-        self.label_spinner.setText("")
         self.transcrevendo = False
         self._esconder_painel_lateral()
         self._reativar_controles()
+        self._fila_total = 0  # zera antes de atualizar_status, senão fica preso em "Transcrevendo (X de Y)"
         dur = _duracao_str(elapsed)
         if concluidos < total:
-            self.barra_animada.cancel()
+            self.waveform_spinner.congelar_erro()
             self.atualizar_status(t("status.concluidos_parcial",
                                     concluidos=concluidos, total=total, dur=dur))
             if self.som_ativado:
                 tocar_som("som_cancelar")
             self._agendar_reset_barra(self._resetar_barra)
         else:
-            self.barra_animada.complete()
-            self.atualizar_status(t("status.concluido"))
+            self.waveform_spinner.stop()
+            # texto vazio: o popup de conclusão já comunica o resultado (evita reescrita em lote)
+            self.label_status.setText("")
             if self.som_ativado:
                 tocar_som("som_notificacao")
-            if total > 1:
-                nomes = "\n".join(
-                    f"• {e['nome']}" for e in self.fila_arquivos
-                )
-                corpo = f"{t('popup.tempo_decorrido', dur=dur)}\n\n{nomes}"
-            else:
-                nome = self.fila_arquivos[0]["nome"] if self.fila_arquivos else ""
-                corpo = f"{t('popup.tempo_decorrido', dur=dur)}\n\n{nome}"
-
-            PopupConclusao(self, corpo, self.pasta_saida, on_ok=self._resetar_barra)
+            resumo = t('popup.tempo_decorrido', dur=dur)
+            nomes  = [e['nome'] for e in self.fila_arquivos]
+            PopupConclusao(self, resumo, nomes, self.pasta_saida, on_ok=self._resetar_barra)
 
     def _on_cancelado(self):
-        self._spinner_timer.stop()
-        self.label_spinner.setText("")
+        self.waveform_spinner.congelar_erro()
         self.transcrevendo = False
         self._esconder_painel_lateral()
-        self.barra_animada.cancel()
+        self._fila_total = 0  # idem _on_finalizado, senão "Cancelado" nasce mascarado
         self.atualizar_status(t("status.cancelado"))
         self._reativar_controles()
-        # Marca os itens não concluídos como erro JÁ AQUI, e renderiza —
-        # é isso que deixa o ícone "!" visível. Antes, essa marcação e a
-        # limpeza dela (via _resetar_barra) aconteciam nas duas linhas
-        # seguintes, na mesma função, sem nenhum repaint entre elas — o
-        # ícone nunca chegava a aparecer na tela.
+        # marca erro e renderiza antes do reset, senão o ícone "!" nunca chega a pintar
         for e in self.fila_arquivos:
             if e.get("status") != "concluido":
                 e["status"] = "erro"
@@ -917,12 +826,11 @@ class App(DragDropMixin, TrayMixin, QMainWindow):
         self._agendar_reset_barra(self._resetar_barra)
 
     def _on_erro_geral(self, msg: str):
-        self._spinner_timer.stop()
-        self.label_spinner.setText("")
+        self.waveform_spinner.congelar_erro()
         self.transcrevendo = False
         self._esconder_painel_lateral()
-        self.barra_animada.cancel()
-        self.atualizar_status(f"Erro: {msg}")
+        self._fila_total = 0
+        self.atualizar_status(t("erro.prefixo", msg=msg))
         if self.som_ativado:
             tocar_som("som_cancelar")
         self._reativar_controles()
@@ -933,27 +841,22 @@ class App(DragDropMixin, TrayMixin, QMainWindow):
     # ------------------------------------------------------------------
 
     def _resetar_barra(self):
-        """Reseta barra, status e ícones da lista — sincronizados."""
-        self.barra_animada.reset()
-        self.label_spinner.setText("")
+        """Reseta o waveform, status e ícones da lista — sincronizados."""
+        self.waveform_spinner.stop()
         self.label_status.setText(t("status.aguardando"))
+        self._fila_total = 0   # rede de segurança, além do reset em _on_*
         for e in self.fila_arquivos:
             e.pop("status", None)
         self._renderizar_lista()
 
     def _agendar_reset_barra(self, callback):
-        """
-        Agenda reset da barra em 5 s usando um QTimer reutilizável.
-        Se já houver um reset pendente, cancela-o antes de agendar o novo —
-        evita que um timer de transcrição anterior dispare no meio de uma nova.
-        """
+        """Agenda reset da barra em 5s, cancelando um reset pendente anterior."""
         if self._timer_reset_barra is None:
             self._timer_reset_barra = QTimer(self)
             self._timer_reset_barra.setSingleShot(True)
         else:
             self._timer_reset_barra.stop()
-            # Desconecta todos os slots anteriores para não acumular callbacks
-            try:
+            try:  # desconecta slots antigos p/ não acumular callbacks
                 self._timer_reset_barra.timeout.disconnect()
             except RuntimeError:
                 pass
@@ -963,12 +866,7 @@ class App(DragDropMixin, TrayMixin, QMainWindow):
     def atualizar_status(self, texto: str):
         self.label_status.setText(texto)
 
-    def _animar_spinner(self):
-        frame = self._spinner_frames[self._spinner_idx % len(self._spinner_frames)]
-        self.label_spinner.setText(frame)
-        self._spinner_idx += 1
-        # Atualiza o texto de fila apenas quando necessário (não sobrescreve progresso)
-        if self._fila_total > 1:
+        if self._fila_total > 1:  # sobrescreve com contagem da fila
             msg = t("status.transcrevendo_fila", idx=self._fila_idx, total=self._fila_total)
             self.label_status.setText(msg)
 
@@ -982,8 +880,7 @@ class App(DragDropMixin, TrayMixin, QMainWindow):
         dlg.exec()
 
     def salvar_configuracoes(self):
-        # Atualiza self.configs no lugar (para preservar idioma_app, formato_saida,
-        # e quaisquer chaves futuras gerenciadas por outras janelas).
+        # atualiza no lugar p/ preservar chaves geridas por outras janelas
         self.configs.update({
             "engine":               self.engine_id,
             "model_id":             self.model_id,
@@ -1009,19 +906,27 @@ class App(DragDropMixin, TrayMixin, QMainWindow):
     # Painel lateral de progresso
     # ------------------------------------------------------------------
 
-    def _alternar_painel_progresso(self):
+    def _preparar_painel_progresso(self):
+        """Cria o painel (se preciso) e reinicia o histórico da fila; não mexe em visibilidade."""
         if self._painel_progresso is None:
             self._painel_progresso = PainelProgresso(self.configs.get("tema", "light"))
             self._painel_progresso.fechar_solicitado.connect(self._fechar_painel_progresso)
-            if 1 <= self._fila_idx <= len(self.fila_arquivos):
-                nome = self.fila_arquivos[self._fila_idx - 1].get("nome", "")
-                self._painel_progresso.reset(nome)
+        self._painel_progresso.iniciar_fila([e.get("nome", "") for e in self.fila_arquivos])
 
-        if self._painel_progresso.isVisible():
-            self._fechar_painel_progresso()
-        else:
+    def _abrir_painel_progresso(self):
+        """Mostra/anima o painel sem reiniciar os dados da fila."""
+        if self._painel_progresso is None:
+            self._preparar_painel_progresso()
+
+        if not self._painel_progresso.isVisible():
             self._painel_progresso.abrir_animado(self)
             self._seta_painel.set_aberta(True)
+
+    def _alternar_painel_progresso(self):
+        if self._painel_progresso is not None and self._painel_progresso.isVisible():
+            self._fechar_painel_progresso()
+        else:
+            self._abrir_painel_progresso()
 
     def _fechar_painel_progresso(self):
         if self._painel_progresso is not None:
@@ -1029,8 +934,7 @@ class App(DragDropMixin, TrayMixin, QMainWindow):
         self._seta_painel.set_aberta(False)
 
     def _esconder_painel_lateral(self):
-        """Chamado ao fim/cancelamento/erro de uma transcrição — some com
-        a seta e fecha o painel, se estiver aberto."""
+        """Some com a seta e fecha o painel — chamado ao fim/erro/cancelamento."""
         self._seta_painel.desaparecer_animado()
         self._fechar_painel_progresso()
 
@@ -1049,35 +953,30 @@ class App(DragDropMixin, TrayMixin, QMainWindow):
         self._reposicionar_painel_lateral()
 
     def hideEvent(self, event):
-        # Cobre tanto minimizar para a bandeja quanto minimizar normal — o
-        # painel (janela top-level própria) não deve ficar flutuando com a
-        # principal escondida. O botão embutido já some sozinho, por ser
-        # filho de verdade da janela.
+        # cobre minimizar normal e pra bandeja — o painel é janela própria, não filha
         if self._painel_progresso is not None:
+            self._painel_estava_visivel_antes_de_esconder = self._painel_progresso.isVisible()
             self._painel_progresso.hide()
         super().hideEvent(event)
 
     def showEvent(self, event):
         super().showEvent(event)
+        # traz o painel de volta com a mesma animação de abertura, não um show() cru
+        if self._painel_estava_visivel_antes_de_esconder and self._painel_progresso is not None:
+            self._painel_estava_visivel_antes_de_esconder = False
+            QTimer.singleShot(150, lambda: self._painel_progresso.abrir_animado(self))
+            self._seta_painel.set_aberta(True)
         self._reposicionar_painel_lateral()
 
     def closeEvent(self, event):
-        # Fecha o painel — ainda é uma janela top-level própria, não filha,
-        # então não some sozinho. O botão embutido é filho de verdade da
-        # janela e é destruído junto automaticamente.
+        # painel é top-level próprio, não filho — precisa fechar manualmente
         if self._painel_progresso is not None:
             self._painel_progresso.close()
 
-        # Cancela reset pendente para não disparar após destruição da janela
-        if self._timer_reset_barra is not None:
+        if self._timer_reset_barra is not None:  # evita disparar após destruir a janela
             self._timer_reset_barra.stop()
 
-        # Se o worker ainda está rodando, cancela e aguarda o encerramento
-        # antes de apagar os arquivos temporários que ele pode estar usando.
-        # wait() tem timeout de propósito: se o subprocesso do whisper-cli
-        # ficar preso (pipe que não fecha no Windows, ver comentário em
-        # whispercpp_engine.py), a app não pode travar pra sempre ao fechar —
-        # melhor fechar mesmo assim do que virar um processo zumbi.
+        # timeout de propósito: se o whisper-cli travar, melhor fechar do que virar zumbi
         if self._worker and self._worker.isRunning():
             self._worker.cancelar()
             if not self._worker.wait(6000):
@@ -1111,34 +1010,14 @@ class App(DragDropMixin, TrayMixin, QMainWindow):
             from interface.dialogs.invalid_folder_popup import PopupPastaInvalida
             dlg = PopupPastaInvalida(self)
             dlg.exec()
-            # Limpa a pasta inválida para não tentar transcrever para lá
-            self.pasta_saida = ""
+            self.pasta_saida = ""  # limpa pra não tentar transcrever pra lá
             self.label_saida.setText(t("pasta.nenhuma"))
             self.salvar_configuracoes()
 
 
-# ---------------------------------------------------------------------------
-# Entry point
-# ---------------------------------------------------------------------------
-
 def _calcular_pointsize(app) -> int:
-    """
-    Calcula o point size base de forma confiável para Windows e Linux,
-    incluindo ambientes sem compositor (Openbox, i3, etc.).
-
-    Ordem de prioridade:
-      1. QT_FONT_DPI definido pelo usuário → respeita diretamente
-      2. QT_SCALE_FACTOR definido pelo usuário → escala sobre 10pt base
-      3. DPI lógico reportado pela tela principal
-      4. Fallback seguro: 10pt (equivale a 96 DPI)
-
-    Fórmula: pointSize = round(10 * dpi / 96)
-      - 96 DPI  → 10pt  (Windows padrão, maioria dos Linux)
-      - 120 DPI → 13pt  (125% no Windows)
-      - 144 DPI → 15pt  (150% no Windows / HiDPI comum)
-      - 192 DPI → 20pt  (200% / Retina)
-    """
-    # 1. Usuário forçou DPI de fonte explicitamente — honrar sem discussão
+    """Point size base confiável pra Windows e Linux (mesmo sem compositor)."""
+    # 1. QT_FONT_DPI do usuário tem prioridade
     font_dpi = os.environ.get("QT_FONT_DPI")
     if font_dpi:
         try:
@@ -1146,7 +1025,7 @@ def _calcular_pointsize(app) -> int:
         except ValueError:
             pass
 
-    # 2. Usuário forçou fator de escala — aplicar sobre base 10pt
+    # 2. QT_SCALE_FACTOR do usuário, sobre base 10pt
     scale = os.environ.get("QT_SCALE_FACTOR")
     if scale:
         try:
@@ -1154,8 +1033,7 @@ def _calcular_pointsize(app) -> int:
         except ValueError:
             pass
 
-    # 3. Ler DPI lógico da tela principal via Qt
-    #    logicalDotsPerInchX é o mais confiável; cobre Xorg e Wayland.
+    # 3. DPI lógico da tela principal (cobre Xorg e Wayland)
     try:
         from PySide6.QtGui import QScreen
         screen: QScreen = app.primaryScreen()
@@ -1167,37 +1045,23 @@ def _calcular_pointsize(app) -> int:
     except Exception:
         pass
 
-    # 4. Fallback seguro
-    return 10
+    return 10  # fallback: 10pt (96 DPI)
 
 
 def iniciar_app():
-    # HiDPI: AA_EnableHighDpiScaling e AA_UseHighDpiPixmaps foram removidos
-    # no PySide6 6.x — o comportamento é ativado por padrão automaticamente.
-    # No Linux sem compositor (Openbox, i3...) use a variável de ambiente:
-    #   QT_ENABLE_HIGHDPI_SCALING=1  antes de iniciar o app.
+    # PySide6 6.x já ativa HiDPI por padrão; sem compositor no Linux, usar
+    # QT_ENABLE_HIGHDPI_SCALING=1 antes de iniciar o app.
 
     app = QApplication.instance() or QApplication(sys.argv)
 
-    # Fusion em todas as plataformas: evita que o Windows use o estilo
-    # nativo (windowsvista / windows11 a partir do Qt 6.7), cujo popup de
-    # combobox/menu é desenhado via Mica/DWM e ignora o background-color
-    # do QSS (aparecia branco no Windows 11). No Linux isso já era
-    # essencialmente o comportamento padrão na ausência de um tema de
-    # plataforma específico — aqui fica explícito e não depende disso.
-    app.setStyle("Fusion")
+    app.setStyle("Fusion")  # evita o estilo nativo do Windows
 
-    # --- Fonte ---
-    # Registra Noto Sans embutida via QRC (interface/assets/assets_rc.py,
-    # compilado a partir de interface/assets/assets.qrc — prefixo /fonts).
-    # Fallback automático para fontes do sistema se o recurso não existir.
+    # fonte Noto Sans embutida via QRC; cai pra fonte do sistema se faltar
     nome_fonte = None
     try:
         from PySide6.QtGui import QFontDatabase
         id1 = QFontDatabase.addApplicationFont(":/fonts/NotoSans-Regular.ttf")
-        # Registro do peso Bold: só o efeito colateral importa (o Qt passa
-        # a ter o arquivo Bold real disponível para a família), o retorno
-        # não é consultado — daí o descarte explícito.
+        _ = QFontDatabase.addApplicationFont(":/fonts/NotoSans-Bold.ttf")  # só o registro importa
         _ = QFontDatabase.addApplicationFont(":/fonts/NotoSans-Bold.ttf")
         if id1 >= 0:
             familias = QFontDatabase.applicationFontFamilies(id1)
@@ -1219,11 +1083,7 @@ def iniciar_app():
     janela = App()
     janela.show()
 
-    # Pré-aquece o ffprobe logo após a janela aparecer.
-    # Na primeira execução o SO ainda não tem o executável em cache de memória,
-    # o que causa um delay visível ao arrastar o primeiro arquivo.
-    # Rodar ffprobe -version em background "esquenta" o processo sem custo para o usuário.
-    def _warmup_ffprobe():
+    def _warmup_ffprobe():  # pré-aquece o ffprobe logo após a janela aparecer
         try:
             from converter.converter import obter_caminhos
             import subprocess
@@ -1239,11 +1099,7 @@ def iniciar_app():
             pass
     threading.Thread(target=_warmup_ffprobe, daemon=True).start()
 
-    # Pré-aquece os sons (QSoundEffect) — evita que a primeira chamada real
-    # de tocar_som() trave a interface ao inicializar o backend de áudio do SO.
-    # QSoundEffect precisa rodar na thread da GUI, então usamos QTimer em vez
-    # de uma thread — o singleShot(0, ...) só espera o loop de eventos girar
-    # uma vez, então o custo cai fora do clique do usuário.
+    # Pré-aquece os sons (QSoundEffect)
     from utils.audio import pre_aquecer
     QTimer.singleShot(
         0,
