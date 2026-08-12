@@ -20,9 +20,7 @@ class TrayMixin:
             if self._usando_tray:
                 return  # já configurado
             if not QSystemTrayIcon.isSystemTrayAvailable():
-                # Ambiente sem bandeja funcional (ex: GNOME sem extensão
-                # AppIndicator) — cai pro minimizar padrão em vez de
-                # esconder a janela sem forma de trazê-la de volta.
+                # sem bandeja funcional (GNOME sem extensão AppIndicator) — cai pro minimizar padrão
                 self._usando_tray = False
                 return
             _icon = QIcon(":/icons/whispaper.png")
