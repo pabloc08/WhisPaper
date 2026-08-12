@@ -28,10 +28,7 @@ FORMATOS_SUPORTADOS = {
 # ---------------------------------------------------------------------------
 
 def precisa_converter(caminho: str, forcar: bool = False) -> bool:
-    """
-    Retorna True se o arquivo precisa ser convertido para WAV 16kHz mono PCM.
-    Se forcar=False e o arquivo já for .wav, retorna False sem inspecionar.
-    """
+    """True se o arquivo precisa virar WAV 16kHz mono PCM (se forcar=False e já for .wav, retorna False direto)."""
     caminho = str(caminho)
     if not caminho.lower().endswith(".wav"):
         return True
@@ -80,19 +77,11 @@ def converter_para_wav(
     aprimorada: bool = True,
 ) -> str | None:
     """
-    Converte um arquivo de mídia para WAV usando FFmpeg.
+    Converte um arquivo de mídia para WAV via FFmpeg.
 
-    Parâmetros:
-        caminho_original  : caminho do arquivo de origem
-        atualizar_status  : callback(str) opcional para exibir progresso na UI
-        aprimorada        : se True, converte para 16kHz mono PCM (ideal para Whisper)
-                            se False, converte para 44100Hz estéreo (genérico)
-
-    Retorna:
-        str com o caminho do WAV temporário, ou None em caso de erro.
-
-    Levanta:
-        FFmpegNaoEncontrado se o FFmpeg não estiver disponível.
+    aprimorada=True → 16kHz mono PCM (ideal pro Whisper); False → 44100Hz estéreo.
+    Retorna o caminho do WAV temporário, ou None em caso de erro.
+    Levanta FFmpegNaoEncontrado se o FFmpeg não estiver disponível.
     """
     from exceptions.conversion_errors import FFmpegNaoEncontrado
 
@@ -112,7 +101,7 @@ def converter_para_wav(
     except RuntimeError as e:
         raise FFmpegNaoEncontrado(str(e)) from e
 
-    # Nome temporário curto e único
+    # nome temporário curto e único
     nome_base  = Path(caminho_original).stem[:12]
     nome_saida = f"{nome_base}_temp_{randint(1000, 9999)}.wav"
     destino    = TEMP_DIR / nome_saida
@@ -156,10 +145,7 @@ def converter_para_wav(
 # ---------------------------------------------------------------------------
 
 def obter_duracao_segundos(caminho: str) -> float | None:
-    """
-    Retorna a duração do arquivo de mídia em segundos (float), ou None
-    em caso de falha (ffprobe ausente, arquivo inválido, etc.).
-    """
+    """Duração do arquivo em segundos, ou None se falhar (ffprobe ausente, arquivo inválido...)."""
     try:
         _, ffprobe = obter_caminhos()
     except RuntimeError:
@@ -189,10 +175,7 @@ def obter_duracao_segundos(caminho: str) -> float | None:
 
 
 def obter_duracao(caminho: str) -> str:
-    """
-    Retorna a duração do arquivo de mídia no formato "H:MM:SS" ou "MM:SS".
-    Retorna "" em caso de falha (ffprobe ausente, arquivo inválido, etc.).
-    """
+    """Duração no formato "H:MM:SS" ou "MM:SS"; "" se falhar."""
     segundos_total = obter_duracao_segundos(caminho)
     if segundos_total is None:
         return ""
