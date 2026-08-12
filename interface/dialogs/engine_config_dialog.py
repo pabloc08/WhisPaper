@@ -34,9 +34,7 @@ class JanelaConfigEngine(QDialog):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(24, 20, 24, 16)
         layout.setSpacing(6)
-        # Altura segue o conteúdo (necessário porque o painel de Opções
-        # Avançadas pode ser expandido/recolhido pelo usuário) — só a
-        # largura fica fixa, definida no __init__.
+        # altura segue o conteúdo (painel avançado expande/recolhe); só a largura é fixa
         layout.setSizeConstraint(QVBoxLayout.SizeConstraint.SetFixedSize)
 
         engine_id = self.app.engine_id
@@ -44,7 +42,7 @@ class JanelaConfigEngine(QDialog):
         cor_hint  = "#64748b" if tema == "light" else "#7d8fa3"
         cor_sep   = "#cbd5e1" if tema == "light" else "#334155"
 
-        # Instância única da engine — usada para checar supports_gpu e supports_vad
+        # instância única, só pra checar supports_gpu/supports_vad
         try:
             engine_inst = EngineManager.get(engine_id)
         except Exception:
@@ -225,8 +223,7 @@ class JanelaConfigEngine(QDialog):
 
         layout.addWidget(self.painel_avancado)
 
-        # Expande automaticamente se algum valor já estiver fora do padrão;
-        # senão começa recolhido.
+        # expande sozinho se algum valor já estiver fora do padrão
         self.painel_avancado.setVisible(False)
         self.btn_avancado.toggled.connect(self._alternar_avancado)
         fora_do_padrao = (
