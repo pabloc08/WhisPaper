@@ -106,10 +106,7 @@ class ModelManager:
         callback_progresso: Optional[Callable[[int, int], None]] = None,
         cancel_event: Optional[threading.Event] = None
     ) -> Path:
-        """
-        Baixa um modelo predefinido de forma atômica e com suporte a retomada.
-        Utiliza o HttpDownloader robusto (retry, paralelismo, resume via .part.json).
-        """
+        """Baixa um modelo predefinido, atômico e com resume (via HttpDownloader)."""
         modelos = MODELOS_PREDEFINIDOS.get(self.engine_id, [])
         modelo = next((m for m in modelos if m["id"] == model_id), None)
         
@@ -119,7 +116,7 @@ class ModelManager:
         destino = self._models_dir / modelo["arquivo"]
         downloader = HttpDownloader(cancel_event=cancel_event)
 
-        # Adaptador para manter compatibilidade com a assinatura antiga do callback (baixado, total)
+        # adapta pra assinatura antiga do callback (baixado, total)
         def _adaptador_progresso(prog: Progresso):
             if callback_progresso:
                 callback_progresso(prog.baixado, prog.total)
