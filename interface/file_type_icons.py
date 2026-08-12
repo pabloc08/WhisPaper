@@ -5,8 +5,7 @@ from PySide6.QtCore import Qt, QRectF, QPointF
 from PySide6.QtGui import QPixmap, QPainter, QColor, QPen, QPolygonF
 from PySide6.QtWidgets import QLabel
 
-# Azul clarinho do app — mais escuro que o fundo, mais claro que o azul
-# primário (#3b82f6) usado nos botões. Ajuste só aqui se quiser outro tom.
+# azul clarinho do app — mais escuro que o fundo, mais claro que o azul primário dos botões
 COR_ICONE_TIPO = "#60a5fa"
 
 _cache_pixmaps: dict = {}
