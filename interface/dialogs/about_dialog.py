@@ -14,7 +14,9 @@ from utils.theme          import aplicar_flags_dialogo_secundario
 # Reutiliza os botões já definidos no wizard
 from interface.dialogs.welcome_dialog import (
     _CSS_BTN_AZUL,
+    _CSS_BTN_AZUL_SUAVE,
     _CSS_BTN_SECUNDARIO,
+    _CSS_BTN_SECUNDARIO_DARK,
     JanelaBoasVindas,
 )
 
@@ -117,14 +119,14 @@ class JanelaSobre(QDialog):
             t("sobre.btn_como_usar") if self._has_t("sobre.btn_como_usar") else "Como usar"
         )
         btn_como_usar.setFixedHeight(36)
-        btn_como_usar.setStyleSheet(_CSS_BTN_AZUL)
+        btn_como_usar.setStyleSheet(_CSS_BTN_AZUL_SUAVE)
         btn_como_usar.clicked.connect(self._abrir_tutorial)
 
         btn_docs = QPushButton(
             t("sobre.btn_docs") if self._has_t("sobre.btn_docs") else "Ver no GitHub"
         )
         btn_docs.setFixedHeight(36)
-        btn_docs.setStyleSheet(_CSS_BTN_SECUNDARIO)
+        btn_docs.setStyleSheet(_CSS_BTN_SECUNDARIO_DARK if dark else _CSS_BTN_SECUNDARIO)
         btn_docs.clicked.connect(self._abrir_docs)
 
         row_btns = QHBoxLayout()
