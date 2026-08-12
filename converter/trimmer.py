@@ -37,21 +37,11 @@ def _hhmmss_para_segundos(valor: str) -> int:
 
 def recortar(audio_path: Path, tempo_inicio: str = None, tempo_fim: str = None) -> Path:
     """
-    Recorta um trecho do áudio entre tempo_inicio e tempo_fim usando FFmpeg.
+    Recorta o áudio entre tempo_inicio e tempo_fim (HH:MM:SS, None = extremo do arquivo)
+    via FFmpeg. Retorna o Path do recorte salvo em TEMP_DIR.
 
-    Parâmetros:
-        audio_path   : Path do arquivo WAV de entrada
-        tempo_inicio : string HH:MM:SS (ou None para início do arquivo)
-        tempo_fim    : string HH:MM:SS (ou None para fim do arquivo)
-
-    Retorna:
-        Path do arquivo recortado salvo em TEMP_DIR.
-
-    Levanta:
-        FFmpegNaoEncontrado se o FFmpeg não estiver disponível.
-        ValueError          se tempo_fim <= tempo_inicio.
-        RuntimeError        se o FFmpeg retornar erro.
-        FileNotFoundError   se o arquivo recortado não for gerado.
+    Levanta FFmpegNaoEncontrado, ValueError (fim <= início), RuntimeError
+    (erro do FFmpeg) ou FileNotFoundError (arquivo não gerado).
     """
     from exceptions.conversion_errors import FFmpegNaoEncontrado
 
