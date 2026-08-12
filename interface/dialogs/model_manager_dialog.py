@@ -95,18 +95,8 @@ class JanelaGerenciadorModelos(QDialog):
         rodape.setSpacing(12)
 
         btn_importar = QPushButton(t("gerenciador.importar"))
+        btn_importar.setObjectName("btn_importar")
         btn_importar.setFixedHeight(32)
-        btn_importar.setStyleSheet("""
-            QPushButton {
-                background-color: #3b82f6;
-                color: white;
-                border: none;
-                border-radius: 6px;
-                padding: 0 14px;
-                font-size: 12px;
-            }
-            QPushButton:hover { background-color: #2563eb; }
-        """)
         btn_importar.clicked.connect(self._importar)
         rodape.addWidget(btn_importar)
 
@@ -152,6 +142,7 @@ class JanelaGerenciadorModelos(QDialog):
             ph.setFixedWidth(80)
             row.addWidget(ph)
             btn = QPushButton(t("gerenciador.instalar"))
+            btn.setObjectName("btn_instalar")
             btn.setFixedSize(80, 28)
             btn.clicked.connect(lambda checked=False, mid=m["id"]: self._baixar(mid))
             row.addWidget(btn)
