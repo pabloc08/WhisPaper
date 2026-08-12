@@ -21,9 +21,8 @@ IDIOMAS_AUDIO_CODIGOS: list[str] = [
     "el", "he", "hi", "id", "ro", "uk", "vi",
 ]
 
-# Opções de tradução por engine (id_engine → lista de códigos ISO de destino,
-# ou "disabled" como primeiro elemento para indicar "sem tradução").
-# A UI traduz esses valores via t("idioma.<codigo>") e t("config_engine.desativado").
+# opções de tradução por engine — "disabled" primeiro = "sem tradução"
+# UI traduz via t("idioma.<codigo>") e t("config_engine.desativado")
 TRADUCAO_OPCOES: dict[str, list[str]] = {
     "whispercpp": ["disabled", "en"],
 }
