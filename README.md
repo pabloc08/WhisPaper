@@ -26,6 +26,8 @@ WhisPaper is a cross-platform application (Windows and Linux) that makes offline
 </p>
 
 > ⚠️ **Windows notice:** the WhisPaper installer is currently unsigned. Windows SmartScreen may display an "Unknown publisher" warning the first time you run it. This is expected. Click **More info → Run anyway** to continue.
+>
+> In some cases, the `.exe` may be blocked outright by Smart App Control (SAC) for not being signed. To fix it, turn SAC off and back on after installing (**Settings → Privacy & security → Windows Security → App & browser control**).
 
 ## Features
 
