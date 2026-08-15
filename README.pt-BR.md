@@ -8,7 +8,7 @@
   <img alt="Licença" src="https://img.shields.io/badge/licença-GPLv3-blue">
   <img alt="Plataforma" src="https://img.shields.io/badge/plataforma-Windows%20%7C%20Linux-lightgrey">
   <img alt="Python" src="https://img.shields.io/badge/python-3.11%2B-blue">
-  <img alt="Versão" src="https://img.shields.io/badge/versão-1.0.0-brightgreen">
+  <img alt="Versão" src="https://img.shields.io/badge/versão-1.1.0-brightgreen">
 </p>
 
 <p align="center">
