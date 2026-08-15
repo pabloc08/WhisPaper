@@ -1,5 +1,6 @@
 # main.py
 
+import os
 import sys
 import traceback
 from pathlib import Path
@@ -98,6 +99,12 @@ def _checar_ffmpeg_e_onboarding(app) -> bool:
 from interface.gui import iniciar_app
 
 if __name__ == "__main__":
+    # Roda via XWayland (X11) em vez de Wayland nativo.
+    if sys.platform not in ("win32", "darwin") and "QT_QPA_PLATFORM" not in os.environ:
+        import shutil
+        if shutil.which("Xwayland"):
+            os.environ["QT_QPA_PLATFORM"] = "xcb"
+
     from PySide6.QtWidgets import QApplication
     _app = QApplication.instance() or QApplication(sys.argv)
 
