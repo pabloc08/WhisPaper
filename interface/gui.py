@@ -1048,6 +1048,19 @@ def _calcular_pointsize(app) -> int:
     return 10  # fallback: 10pt (96 DPI)
 
 
+def _centralizar_na_tela(janela):
+    """Centraliza a janela na tela primária."""
+    tela = QApplication.primaryScreen()
+    if not tela:
+        return
+    area = tela.availableGeometry()
+    largura = janela.width() or janela.sizeHint().width()
+    altura = janela.height() or janela.sizeHint().height()
+    x = area.x() + (area.width() - largura) // 2
+    y = area.y() + (area.height() - altura) // 2
+    janela.move(x, y)
+
+
 def iniciar_app():
     # PySide6 6.x já ativa HiDPI por padrão; sem compositor no Linux, usar
     # QT_ENABLE_HIGHDPI_SCALING=1 antes de iniciar o app.
@@ -1081,6 +1094,7 @@ def iniciar_app():
 
     app.setStyleSheet(_carregar_qss(_tema_inicial()))
     janela = App()
+    _centralizar_na_tela(janela)
     janela.show()
 
     def _warmup_ffprobe():  # pré-aquece o ffprobe logo após a janela aparecer
