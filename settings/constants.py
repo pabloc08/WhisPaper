@@ -1,7 +1,7 @@
 # settings/constants.py
 # Dados estáticos do app — sem dependência de GUI ou engines.
 
-VERSAO_APP   = "1.0.0"
+VERSAO_APP   = "1.1.0"
 PROJECT_URL  = "https://github.com/pabloc08/WhisPaper"
 
 MAX_STEM_SAIDA = 12  # caracteres do nome original no arquivo de saída
