@@ -26,6 +26,8 @@ WhisPaper é um aplicativo multiplataforma (Windows e Linux) que fornece uma exp
 </p>
 
 > ⚠️ **Aviso para Windows:** o instalador do WhisPaper ainda não possui assinatura digital. Por isso, o Windows SmartScreen poderá exibir um aviso de "aplicativo desconhecido" na primeira execução. Isso é esperado. Clique em **Mais informações → Executar assim mesmo** para continuar.
+>
+> Em algumas ocasiões, o `.exe` pode ser bloqueado diretamente pelo Controle de Aplicativos Inteligentes (SAC), por não ser assinado. Para resolver, desative e reative novamente após a instalação (**Configurações → Privacidade e segurança → Segurança do Windows → Controle de aplicativos e navegador**).
 
 ## Funcionalidades
 
